@@ -11,7 +11,7 @@
 // =============================================================================
 
 let
-    Source = MySQL.Database("localhost:3306", "your_erpnext_site_db", [
+    Source = MySQL.Database("localhost:3306", "_7e269a3c97126b3e", [
         Query = "
             SELECT
                 b.item_code,
