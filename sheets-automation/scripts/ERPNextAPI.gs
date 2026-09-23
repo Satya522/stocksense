@@ -5,9 +5,8 @@
  * NOTE: If ERPNext is on localhost, Google's servers cannot reach it without a tunnel (like ngrok).
  */
 
-// Replace with your actual ERPNext tunnel URL (run: ngrok http 8080)
-// For local testing only: "http://localhost:8080"
-const ERPNEXT_BASE_URL = "http://localhost:8080"; 
+// Live ngrok tunnel URL (valid while ngrok is running)
+const ERPNEXT_BASE_URL = "https://handwash-semisweet-dandruff.ngrok-free.dev"; 
 
 // API credentials (from .env)
 const API_KEY = "14915643fd5946c";

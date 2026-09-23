@@ -56,7 +56,7 @@ Every phase produces working, demonstrable output.
 
 ---
 
-## ⬜ Phase 3: Advanced ETL + Python Analytics
+## ✅ Phase 3: Advanced ETL + Python Analytics *(COMPLETE)*
 
 **Goal:** Multi-source ETL pipelines and predictive analytics (demand forecasting, anomaly detection).
 
@@ -64,11 +64,11 @@ Every phase produces working, demonstrable output.
 
 | # | Task | Status |
 |---|---|---|
-| 3.1 | Power Query: multi-source ETL (ERP + external data) | ⬜ |
-| 3.2 | Python: demand forecasting model (pandas + scikit-learn) | ⬜ |
-| 3.3 | Python: stock anomaly detection (unusual movements) | ⬜ |
-| 3.4 | Jupyter notebooks documenting analysis | ⬜ |
-| 3.5 | Forecast/anomaly results integrated into Power BI | ⬜ |
+| 3.1 | Power Query: multi-source ETL (ERP + external market data) | ✅ |
+| 3.2 | Python: demand forecasting model (GradientBoosting) | ✅ |
+| 3.3 | Python: stock anomaly detection (Z-Score + IQR) | ✅ |
+| 3.4 | Jupyter notebook documenting full analysis workflow | ✅ |
+| 3.5 | Forecast/anomaly results integrated into Power BI (M scripts) | ✅ |
 
 ### Skills Demonstrated
 - Advanced Power Query (M language)
