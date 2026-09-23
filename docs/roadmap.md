@@ -79,7 +79,7 @@ Every phase produces working, demonstrable output.
 
 ---
 
-## 🟡 Phase 4: AI Layer + ERPNext Customization + Deployment *(PARTIAL - AI Deferred)*
+## ✅ Phase 4: AI Layer + ERPNext Customization + Deployment *(COMPLETE)*
 
 **Goal:** Natural-language querying, ERPNext UI enhancements, and a fully containerised deployment.
 
@@ -87,12 +87,13 @@ Every phase produces working, demonstrable output.
 
 | # | Task | Status |
 |---|---|---|
-| 4.1 | AI/NLP: natural-language stock queries | 🔜 Deferred |
+| 4.1 | AI/NLP: natural-language stock queries (CLI + Web Chat UI) | ✅ |
 | 4.2 | JavaScript: ERPNext client script customizations (Stock Health + Alerts) | ✅ |
 | 4.3 | Docker Compose: full-stack deployment package | ✅ |
 | 4.4 | Documentation: deployment guide and user manual | ✅ |
 
 ### Skills Demonstrated
+- AI/NLP integration for business applications
 - JavaScript client-side development
 - Docker Compose multi-service orchestration
 - Technical documentation and deployment automation
