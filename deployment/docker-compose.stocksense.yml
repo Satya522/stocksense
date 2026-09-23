@@ -1,0 +1,133 @@
+# ==============================================================================
+# StockSense - Docker Compose Full-Stack Deployment
+# ==============================================================================
+# This docker-compose file packages the entire StockSense analytics stack:
+#   1. ERPNext (via frappe_docker)
+#   2. MariaDB (database)
+#   3. Redis (cache)
+#   4. Nginx (reverse proxy)
+#
+# Usage:
+#   docker compose -f docker-compose.stocksense.yml up -d
+# ==============================================================================
+
+version: "3.8"
+
+services:
+  # --- ERPNext Backend ---
+  backend:
+    image: frappe/erpnext:v15
+    restart: unless-stopped
+    volumes:
+      - sites-vol:/home/frappe/frappe-bench/sites
+      - logs-vol:/home/frappe/frappe-bench/logs
+    environment:
+      - FRAPPE_SITE_NAME_HEADER=frontend
+    networks:
+      - stocksense-net
+
+  # --- MariaDB Database ---
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-stocksense_root_2026}
+      MYSQL_DATABASE: ${DB_NAME:-_7e269a3c97126b3e}
+      MYSQL_USER: ${DB_USER:-_7e269a3c97126b3e}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-1yicUiN4GddjNihq}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db-data-vol:/var/lib/mysql
+    networks:
+      - stocksense-net
+
+  # --- Redis Cache ---
+  redis-cache:
+    image: redis:alpine
+    restart: unless-stopped
+    networks:
+      - stocksense-net
+
+  redis-queue:
+    image: redis:alpine
+    restart: unless-stopped
+    networks:
+      - stocksense-net
+
+  # --- Nginx Frontend ---
+  frontend:
+    image: frappe/erpnext:v15
+    restart: unless-stopped
+    command: nginx-entrypoint.sh
+    environment:
+      BACKEND: backend:8000
+      SOCKETIO: websocket:9000
+      FRAPPE_SITE_NAME_HEADER: frontend
+    ports:
+      - "8080:8080"
+    volumes:
+      - sites-vol:/home/frappe/frappe-bench/sites
+    depends_on:
+      - backend
+      - websocket
+    networks:
+      - stocksense-net
+
+  # --- WebSocket ---
+  websocket:
+    image: frappe/erpnext:v15
+    restart: unless-stopped
+    command:
+      - node
+      - /home/frappe/frappe-bench/apps/frappe/socketio.js
+    volumes:
+      - sites-vol:/home/frappe/frappe-bench/sites
+      - logs-vol:/home/frappe/frappe-bench/logs
+    networks:
+      - stocksense-net
+
+  # --- Background Workers ---
+  queue-short:
+    image: frappe/erpnext:v15
+    restart: unless-stopped
+    command: bench worker --queue short
+    volumes:
+      - sites-vol:/home/frappe/frappe-bench/sites
+      - logs-vol:/home/frappe/frappe-bench/logs
+    networks:
+      - stocksense-net
+
+  queue-long:
+    image: frappe/erpnext:v15
+    restart: unless-stopped
+    command: bench worker --queue long
+    volumes:
+      - sites-vol:/home/frappe/frappe-bench/sites
+      - logs-vol:/home/frappe/frappe-bench/logs
+    networks:
+      - stocksense-net
+
+  scheduler:
+    image: frappe/erpnext:v15
+    restart: unless-stopped
+    command: bench schedule
+    volumes:
+      - sites-vol:/home/frappe/frappe-bench/sites
+      - logs-vol:/home/frappe/frappe-bench/logs
+    networks:
+      - stocksense-net
+
+volumes:
+  db-data-vol:
+  sites-vol:
+  logs-vol:
+
+networks:
+  stocksense-net:
+    driver: bridge
