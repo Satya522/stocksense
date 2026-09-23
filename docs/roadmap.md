@@ -7,7 +7,7 @@ Every phase produces working, demonstrable output.
 
 ---
 
-## 🟢 Phase 1: Core Analytics Dashboard *(CURRENT FOCUS)*
+## ✅ Phase 1: Core Analytics Dashboard *(COMPLETE)*
 
 **Goal:** Get real-time warehouse visibility through SQL analytics and Power BI dashboards.
 
@@ -15,14 +15,14 @@ Every phase produces working, demonstrable output.
 
 | # | Task | Status |
 |---|---|---|
-| 1.1 | ERPNext running in Docker with sample data | ⬜ |
-| 1.2 | Python connection scripts (API + DB) validated | ⬜ |
-| 1.3 | SQL analytics queries written and tested | ⬜ |
-| 1.4 | Power BI connected to MariaDB | ⬜ |
-| 1.5 | Stock Overview dashboard page built | ⬜ |
-| 1.6 | Low Stock Alerts dashboard page built | ⬜ |
-| 1.7 | Stock Movement dashboard page built | ⬜ |
-| 1.8 | Sales Analysis dashboard page built | ⬜ |
+| 1.1 | ERPNext running in Docker with sample data | ✅ |
+| 1.2 | Python connection scripts (API + DB) validated | ✅ |
+| 1.3 | SQL analytics queries written and tested | ✅ |
+| 1.4 | Power BI connected to MariaDB (M Scripts loaded) | ✅ |
+| 1.5 | Stock Overview dashboard page built (Power BI + data loaded) | ✅ |
+| 1.6 | Low Stock Alerts dashboard page built (M Script loaded) | ✅ |
+| 1.7 | Stock Movement dashboard page built (M Script loaded) | ✅ |
+| 1.8 | Sales Analysis dashboard page built (M Script loaded) | ✅ |
 
 ### Skills Demonstrated
 - ERP administration (ERPNext)
@@ -33,7 +33,7 @@ Every phase produces working, demonstrable output.
 
 ---
 
-## ⬜ Phase 2: Automation (Excel VBA + Google Apps Script)
+## ✅ Phase 2: Automation (Excel VBA + Google Apps Script) *(COMPLETE)*
 
 **Goal:** Automate repetitive warehouse workflows that currently require manual ERP data entry.
 
@@ -41,11 +41,12 @@ Every phase produces working, demonstrable output.
 
 | # | Task | Status |
 |---|---|---|
-| 2.1 | Excel VBA: Bulk Sales Order upload macro | ⬜ |
-| 2.2 | Excel VBA: Stock level pull-to-Excel macro | ⬜ |
-| 2.3 | Google Form for Material Request submission | ⬜ |
-| 2.4 | Apps Script: Form → ERPNext Material Request | ⬜ |
-| 2.5 | Error handling and logging in all macros | ⬜ |
+| 2.1 | Excel VBA: Bulk Sales Order upload macro | ✅ |
+| 2.2 | Excel VBA: Stock level pull-to-Excel macro | ✅ |
+| 2.3 | Google Apps Script: ERPNext API utility | ✅ |
+| 2.4 | Apps Script: Form → ERPNext Material Request | ✅ |
+| 2.5 | Apps Script: Stock Dashboard Sync to Google Sheets | ✅ |
+| 2.6 | Error handling and logging in all macros/scripts | ✅ |
 
 ### Skills Demonstrated
 - VBA programming and REST API integration

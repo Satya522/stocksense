@@ -1,13 +1,13 @@
 // =============================================================================
-// StockSense — Power Query M Script: Current Stock by Item
+// StockSense - Power Query M Script: Current Stock by Item
 // =============================================================================
-// Paste this into Power BI Desktop → Home → Transform Data → Advanced Editor
+// Paste this into Power BI Desktop -> Home -> Transform Data -> Advanced Editor
 //
 // Before using:
 // 1. Replace "localhost" with your DB_HOST if different
 // 2. Replace "your_erpnext_site_db" with your actual ERPNext database name
 //    (run SHOW DATABASES; in MariaDB to find it)
-// 3. You'll be prompted for credentials on first run — use your DB_USER / DB_PASSWORD
+// 3. You'll be prompted for credentials on first run - use your DB_USER / DB_PASSWORD
 // =============================================================================
 
 let
