@@ -156,6 +156,44 @@ def generate_forecast_report(forecast_df):
     return output_path
 
 
+def predict_demand():
+    """Returns demand forecast results as a list of dictionaries for API consumers."""
+    csv_path = Path(__file__).resolve().parent.parent.parent / "data" / "demand_forecast_results.csv"
+    if csv_path.exists():
+        try:
+            df = pd.read_csv(csv_path)
+            # Clean floats and NaN for JSON safety
+            clean_records = []
+            for record in df.to_dict(orient="records"):
+                clean = {}
+                for k, v in record.items():
+                    if pd.isna(v):
+                        clean[k] = None
+                    elif isinstance(v, (np.floating, float)):
+                        clean[k] = round(float(v), 2)
+                    elif isinstance(v, (np.integer, int)):
+                        clean[k] = int(v)
+                    else:
+                        clean[k] = v
+                clean_records.append(clean)
+            return clean_records
+        except Exception as e:
+            print(f"[WARN] Error reading forecast CSV: {e}")
+
+    try:
+        engine = get_db_engine()
+        movements = extract_stock_movements(engine)
+        if not movements.empty:
+            features = create_features(movements)
+            _, forecast_df = train_forecast_model(features)
+            generate_forecast_report(forecast_df)
+            return forecast_df.to_dict(orient="records")
+    except Exception as e:
+        print(f"[WARN] Live forecast generation failed: {e}")
+
+    return []
+
+
 # --- Main Execution ---
 if __name__ == "__main__":
     print("=" * 60)

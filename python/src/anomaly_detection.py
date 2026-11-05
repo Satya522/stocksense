@@ -151,6 +151,50 @@ def generate_anomaly_report(df):
     return output_path
 
 
+def detect_anomalies():
+    """Extracts stock movements, computes Z-Score & IQR anomalies, and returns structured records."""
+    csv_path = Path(__file__).resolve().parent.parent.parent / "data" / "anomaly_report.csv"
+    try:
+        engine = get_db_engine()
+        ledger = extract_ledger_data(engine)
+        if not ledger.empty:
+            ledger = detect_zscore_anomalies(ledger, threshold=2.5)
+            ledger = detect_iqr_anomalies(ledger, multiplier=1.5)
+            ledger = classify_anomalies(ledger)
+            anomalies = ledger[ledger['is_anomaly']]
+            output_cols = [
+                'item_code', 'warehouse', 'posting_date', 'actual_qty',
+                'qty_after_transaction', 'z_score', 'anomaly_type', 'voucher_type', 'voucher_no'
+            ]
+            cols = [c for c in output_cols if c in anomalies.columns]
+            res = anomalies[cols].copy()
+            generate_anomaly_report(ledger)
+            records = []
+            for r in res.to_dict(orient="records"):
+                clean = {}
+                for k, v in r.items():
+                    if pd.isna(v):
+                        clean[k] = None
+                    elif isinstance(v, (np.floating, float)):
+                        clean[k] = round(float(v), 2)
+                    elif isinstance(v, (np.integer, int)):
+                        clean[k] = int(v)
+                    else:
+                        clean[k] = str(v)
+                records.append(clean)
+            return records
+    except Exception as e:
+        print(f"[WARN] Live anomaly detection failed: {e}")
+
+    if csv_path.exists():
+        try:
+            df = pd.read_csv(csv_path)
+            return df.to_dict(orient="records")
+        except Exception:
+            pass
+    return []
+
+
 # --- Main Execution ---
 if __name__ == "__main__":
     print("=" * 60)

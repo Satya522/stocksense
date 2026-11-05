@@ -1,354 +1,375 @@
 """
-StockSense - AI Query REST API Server
-======================================
-Exposes the NLP Stock Query Engine as a REST API endpoint.
-This allows any frontend (web, mobile, chatbot) to send questions
-and receive answers.
+StockSense - AI Query REST API Server v2 (Real-Time ERPNext Data)
+==================================================================
+Uses raw pymysql for DB queries (no pandas dependency for serving).
+Falls back gracefully if pandas-dependent modules aren't available.
 
-Usage:
-  cd python
-  venv\\Scripts\\activate
-  python src/ai_query_api.py
-
-API:
-  POST http://localhost:5000/api/ask
-  Body: { "question": "What is my lowest stock item?" }
+Endpoints:
+  GET  /api/health             — Health check
+  GET  /api/dashboard/stats    — Metric cards data
+  GET  /api/dashboard/stock    — All items with qty, reorder, status
+  GET  /api/dashboard/activity — Recent stock ledger entries
+  GET  /api/dashboard/top-items — Top items by quantity
+  GET  /api/dashboard/health-ring — Healthy/warning/critical counts
+  GET  /api/dashboard/summary  — AI NLP summary
+  GET  /api/dashboard/warehouses — Warehouse breakdown
+  GET  /api/forecasts          — Forecast data
+  GET  /api/anomalies          — Anomaly detection results
+  POST /api/ask                — AI NLP chat
 """
 
 import os
+import sys
+import json
+import traceback
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import json
 
-# Import our NLP engine
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ai_stock_query import StockQueryEngine
+import pymysql
+from dotenv import load_dotenv
 
-# Initialize engine
-query_engine = StockQueryEngine()
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
+DB_CONFIG = {
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": int(os.getenv("DB_PORT", "3306")),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
+    "charset": "utf8mb4",
+    "cursorclass": pymysql.cursors.DictCursor,
+}
+
+# Try to import the NLP engine (uses pandas internally)
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from ai_stock_query import StockQueryEngine
+    query_engine = StockQueryEngine()
+    NLP_AVAILABLE = True
+    print("[OK] NLP engine loaded")
+except Exception as e:
+    query_engine = None
+    NLP_AVAILABLE = False
+    print(f"[WARN] NLP engine not available: {e}")
+    print("[INFO] Chat and AI Summary will show fallback messages.")
 
 
-class AIQueryHandler(BaseHTTPRequestHandler):
-    """Simple HTTP handler for the AI query API."""
+def query_db(sql, params=None):
+    """Run a SQL query and return list of dicts using raw pymysql."""
+    conn = pymysql.connect(**DB_CONFIG)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params or ())
+            rows = cursor.fetchall()
+            # Convert Decimal and other types to JSON-safe
+            result = []
+            for row in rows:
+                clean = {}
+                for k, v in row.items():
+                    if hasattr(v, '__float__'):
+                        clean[k] = float(v)
+                    elif hasattr(v, 'isoformat'):
+                        clean[k] = str(v)
+                    else:
+                        clean[k] = v
+                result.append(clean)
+            return result
+    finally:
+        conn.close()
+
+
+def get_dashboard_stats():
+    summary = query_db("""
+        SELECT
+            COUNT(DISTINCT b.item_code) AS total_items,
+            COALESCE(SUM(b.actual_qty), 0) AS total_qty,
+            COALESCE(SUM(b.actual_qty * b.valuation_rate), 0) AS total_value
+        FROM `tabBin` b
+        LEFT JOIN `tabItem` i ON b.item_code = i.name
+        WHERE i.is_stock_item = 1
+    """)
+
+    low_stock = query_db("""
+        SELECT COUNT(*) AS cnt
+        FROM `tabBin` b
+        INNER JOIN `tabItem` i ON b.item_code = i.name
+        LEFT JOIN `tabItem Reorder` ir ON ir.parent = b.item_code AND ir.warehouse = b.warehouse
+        WHERE i.is_stock_item = 1
+          AND ir.warehouse_reorder_level IS NOT NULL
+          AND b.actual_qty < ir.warehouse_reorder_level
+    """)
+
+    orders = query_db("""
+        SELECT COUNT(*) AS cnt FROM `tabSales Order`
+        WHERE docstatus = 1 AND MONTH(creation) = MONTH(NOW()) AND YEAR(creation) = YEAR(NOW())
+    """)
+    po = query_db("""
+        SELECT COUNT(*) AS cnt FROM `tabPurchase Order`
+        WHERE docstatus = 1 AND MONTH(creation) = MONTH(NOW()) AND YEAR(creation) = YEAR(NOW())
+    """)
+
+    s = summary[0] if summary else {}
+    total_value = float(s.get('total_value', 0))
+
+    if total_value >= 100000:
+        value_str = f"₹{total_value/100000:.1f}L"
+    elif total_value >= 1000:
+        value_str = f"₹{total_value/1000:.1f}K"
+    else:
+        value_str = f"₹{total_value:.0f}"
+
+    return {
+        "total_items": int(s.get('total_items', 0)),
+        "total_qty": int(s.get('total_qty', 0)),
+        "total_value": value_str,
+        "total_value_raw": total_value,
+        "low_stock_alerts": int(low_stock[0]['cnt']) if low_stock else 0,
+        "orders_this_month": int(orders[0]['cnt'] if orders else 0) + int(po[0]['cnt'] if po else 0),
+    }
+
+
+def get_stock_data():
+    rows = query_db("""
+        SELECT
+            b.item_code,
+            i.item_name,
+            i.item_group,
+            b.warehouse,
+            COALESCE(b.actual_qty, 0) AS qty,
+            COALESCE(ir.warehouse_reorder_level, 0) AS reorder_level,
+            COALESCE(b.valuation_rate, 0) AS valuation_rate,
+            COALESCE(b.actual_qty * b.valuation_rate, 0) AS stock_value
+        FROM `tabBin` b
+        LEFT JOIN `tabItem` i ON b.item_code = i.name
+        LEFT JOIN `tabItem Reorder` ir ON ir.parent = b.item_code AND ir.warehouse = b.warehouse
+        WHERE i.is_stock_item = 1
+        ORDER BY b.actual_qty ASC
+    """)
+    for row in rows:
+        qty = float(row.get('qty', 0))
+        reorder = float(row.get('reorder_level', 0))
+        if reorder > 0:
+            if qty <= 0:
+                row['status'] = 'critical'
+            elif qty < reorder:
+                row['status'] = 'critical'
+            elif qty < reorder * 1.5:
+                row['status'] = 'warning'
+            else:
+                row['status'] = 'healthy'
+        else:
+            row['status'] = 'healthy' if qty > 0 else 'critical'
+    return rows
+
+
+def get_recent_activity():
+    return query_db("""
+        SELECT
+            sle.item_code,
+            i.item_name,
+            sle.warehouse,
+            sle.actual_qty AS qty_change,
+            sle.qty_after_transaction,
+            sle.voucher_type,
+            sle.voucher_no,
+            sle.posting_date,
+            sle.posting_time
+        FROM `tabStock Ledger Entry` sle
+        LEFT JOIN `tabItem` i ON sle.item_code = i.name
+        ORDER BY sle.posting_date DESC, sle.posting_time DESC
+        LIMIT 20
+    """)
+
+
+def get_top_items():
+    rows = query_db("""
+        SELECT
+            COALESCE(i.item_name, b.item_code) AS name,
+            SUM(b.actual_qty) AS value
+        FROM `tabBin` b
+        LEFT JOIN `tabItem` i ON b.item_code = i.name
+        WHERE i.is_stock_item = 1
+        GROUP BY b.item_code, i.item_name
+        ORDER BY value DESC
+        LIMIT 8
+    """)
+    colors = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#14b8a6', '#a855f7']
+    for i, row in enumerate(rows):
+        row['fill'] = colors[i % len(colors)]
+        name = str(row.get('name', ''))
+        row['name'] = name[:15] + '…' if len(name) > 15 else name
+    return rows
+
+
+def get_warehouses():
+    rows = query_db("""
+        SELECT
+            b.warehouse AS name,
+            COUNT(DISTINCT b.item_code) AS items,
+            SUM(b.actual_qty) AS total_qty,
+            SUM(b.actual_qty * b.valuation_rate) AS total_value
+        FROM `tabBin` b
+        LEFT JOIN `tabItem` i ON b.item_code = i.name
+        WHERE i.is_stock_item = 1
+        GROUP BY b.warehouse
+        ORDER BY total_value DESC
+    """)
+    return rows
+
+
+class APIHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
-        """Handle CORS preflight."""
         self.send_response(200)
-        self._set_cors_headers()
+        self._cors()
         self.end_headers()
 
     def do_POST(self):
-        """Handle POST /api/ask"""
         if self.path == '/api/ask':
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length).decode('utf-8')
-
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length).decode('utf-8')
             try:
                 data = json.loads(body)
-                question = data.get('question', '')
-
-                if not question:
-                    self._send_json(400, {"error": "Question is required"})
-                    return
-
-                answer = query_engine.ask(question)
-                self._send_json(200, {"question": question, "answer": answer})
-
+                q = data.get('question', '')
+                if not q:
+                    return self._json(400, {"error": "Question is required"})
+                if NLP_AVAILABLE:
+                    answer = query_engine.ask(q)
+                else:
+                    # Fallback: run a basic query
+                    answer = self._fallback_answer(q)
+                self._json(200, {"question": q, "answer": answer})
             except json.JSONDecodeError:
-                self._send_json(400, {"error": "Invalid JSON"})
+                self._json(400, {"error": "Invalid JSON"})
             except Exception as e:
-                self._send_json(500, {"error": str(e)})
+                self._json(500, {"error": str(e)})
         else:
-            self._send_json(404, {"error": "Not found"})
+            self._json(404, {"error": "Not found"})
+
+    def _fallback_answer(self, question):
+        """Basic fallback when NLP engine isn't available."""
+        q = question.lower()
+        try:
+            if any(k in q for k in ['lowest', 'least', 'kam', 'low']):
+                rows = query_db("""
+                    SELECT b.item_code, i.item_name, b.warehouse, b.actual_qty
+                    FROM `tabBin` b LEFT JOIN `tabItem` i ON b.item_code = i.name
+                    WHERE i.is_stock_item = 1 ORDER BY b.actual_qty ASC LIMIT 10
+                """)
+                lines = ["Sabse kam stock wale items:"]
+                for r in rows:
+                    lines.append(f"  {r['item_name']} ({r['item_code']}): {r['actual_qty']} units in {r['warehouse']}")
+                return "\n".join(lines)
+            elif any(k in q for k in ['value', 'worth', 'total']):
+                rows = query_db("""
+                    SELECT COUNT(DISTINCT b.item_code) AS items, SUM(b.actual_qty) AS qty,
+                           SUM(b.actual_qty * b.valuation_rate) AS value
+                    FROM `tabBin` b LEFT JOIN `tabItem` i ON b.item_code = i.name
+                    WHERE i.is_stock_item = 1
+                """)
+                r = rows[0] if rows else {}
+                return f"Total Items: {r.get('items',0)}\nTotal Qty: {r.get('qty',0)}\nTotal Value: ₹{float(r.get('value',0)):,.2f}"
+            elif any(k in q for k in ['warehouse', 'godown']):
+                rows = get_warehouses()
+                lines = ["Warehouse summary:"]
+                for r in rows:
+                    lines.append(f"  {r['name']}: {r['items']} items, {r['total_qty']} qty, ₹{float(r.get('total_value',0)):,.0f}")
+                return "\n".join(lines)
+            else:
+                return "Mujhe samajh nahi aaya. Try: 'lowest stock', 'total value', 'warehouse summary'"
+        except Exception as e:
+            return f"Query error: {str(e)}"
 
     def do_GET(self):
-        """Serve the chat UI on GET /"""
-        if self.path == '/' or self.path == '/index.html':
-            self._serve_chat_ui()
-        elif self.path == '/api/health':
-            self._send_json(200, {"status": "ok", "service": "StockSense AI"})
-        else:
-            self._send_json(404, {"error": "Not found"})
+        try:
+            p = self.path
+            if p == '/api/health':
+                self._json(200, {"status": "ok", "service": "StockSense AI v2", "nlp": NLP_AVAILABLE})
 
-    def _serve_chat_ui(self):
-        """Serve the embedded chat HTML page."""
-        html = get_chat_html()
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/html; charset=utf-8')
-        self._set_cors_headers()
-        self.end_headers()
-        self.wfile.write(html.encode('utf-8'))
+            elif p == '/api/dashboard/stats':
+                self._json(200, get_dashboard_stats())
 
-    def _send_json(self, status_code, data):
-        self.send_response(status_code)
+            elif p == '/api/dashboard/stock':
+                self._json(200, {"data": get_stock_data()})
+
+            elif p == '/api/dashboard/activity':
+                self._json(200, {"data": get_recent_activity()})
+
+            elif p == '/api/dashboard/top-items':
+                self._json(200, {"data": get_top_items()})
+
+            elif p == '/api/dashboard/warehouses':
+                self._json(200, {"data": get_warehouses()})
+
+            elif p == '/api/dashboard/health-ring':
+                stock = get_stock_data()
+                h = sum(1 for s in stock if s['status'] == 'healthy')
+                w = sum(1 for s in stock if s['status'] == 'warning')
+                c = sum(1 for s in stock if s['status'] == 'critical')
+                self._json(200, {"healthy": h, "warning": w, "critical": c, "total": len(stock)})
+
+            elif p == '/api/dashboard/summary':
+                if NLP_AVAILABLE:
+                    txt = query_engine.ask("Give me a summary of total items, total stock value, and how many items are low in stock.")
+                else:
+                    stats = get_dashboard_stats()
+                    txt = (f"Total Items: {stats['total_items']}\n"
+                           f"Stock Value: {stats['total_value']}\n"
+                           f"Low Stock Alerts: {stats['low_stock_alerts']}\n"
+                           f"Orders This Month: {stats['orders_this_month']}")
+                self._json(200, {"summary": txt})
+
+            elif p == '/api/forecasts':
+                try:
+                    from demand_forecast import predict_demand
+                    self._json(200, {"data": predict_demand()})
+                except Exception:
+                    self._json(200, {"data": [], "error": "Forecast module not available"})
+
+            elif p == '/api/anomalies':
+                try:
+                    from anomaly_detection import detect_anomalies
+                    self._json(200, {"data": detect_anomalies()})
+                except Exception:
+                    self._json(200, {"data": [], "error": "Anomaly module not available"})
+
+            else:
+                self._json(404, {"error": "Not found"})
+
+        except Exception as e:
+            traceback.print_exc()
+            self._json(500, {"error": str(e)})
+
+    def _json(self, code, data):
+        self.send_response(code)
         self.send_header('Content-Type', 'application/json')
-        self._set_cors_headers()
+        self._cors()
         self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+        self.wfile.write(json.dumps(data, ensure_ascii=False, default=str).encode('utf-8'))
 
-    def _set_cors_headers(self):
+    def _cors(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
 
-    def log_message(self, format, *args):
+    def log_message(self, fmt, *args):
         print(f"[API] {args[0]}")
 
 
-def get_chat_html():
-    """Returns the embedded chat UI HTML."""
-    return '''<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StockSense AI - Chat</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #e0e0e0;
-        }
-        .chat-container {
-            width: 90%;
-            max-width: 700px;
-            height: 85vh;
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
-        }
-        .chat-header {
-            padding: 20px 24px;
-            background: rgba(255,255,255,0.08);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            text-align: center;
-        }
-        .chat-header h1 {
-            font-size: 20px;
-            font-weight: 700;
-            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .chat-header p { font-size: 12px; color: #888; margin-top: 4px; }
-        .messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .message {
-            max-width: 85%;
-            padding: 12px 16px;
-            border-radius: 16px;
-            font-size: 14px;
-            line-height: 1.5;
-            animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .message.user {
-            align-self: flex-end;
-            background: linear-gradient(135deg, #3a7bd5, #00d2ff);
-            color: white;
-            border-bottom-right-radius: 4px;
-        }
-        .message.ai {
-            align-self: flex-start;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-bottom-left-radius: 4px;
-            white-space: pre-wrap;
-            font-family: 'Inter', monospace;
-            font-size: 13px;
-        }
-        .message.ai .label {
-            font-size: 10px;
-            color: #00d2ff;
-            font-weight: 600;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .input-area {
-            padding: 16px 20px;
-            background: rgba(255,255,255,0.05);
-            border-top: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            gap: 10px;
-        }
-        .input-area input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 12px;
-            background: rgba(255,255,255,0.08);
-            color: white;
-            font-size: 14px;
-            font-family: 'Inter', sans-serif;
-            outline: none;
-            transition: border 0.2s;
-        }
-        .input-area input:focus { border-color: #00d2ff; }
-        .input-area input::placeholder { color: #666; }
-        .input-area button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #3a7bd5, #00d2ff);
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.1s, opacity 0.2s;
-            font-family: 'Inter', sans-serif;
-        }
-        .input-area button:hover { transform: scale(1.02); }
-        .input-area button:active { transform: scale(0.98); }
-        .input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .suggestions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            padding: 0 20px 12px;
-        }
-        .suggestion {
-            padding: 6px 12px;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 20px;
-            font-size: 12px;
-            color: #aaa;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .suggestion:hover {
-            background: rgba(0,210,255,0.15);
-            border-color: #00d2ff;
-            color: #00d2ff;
-        }
-        .typing { color: #888; font-style: italic; font-size: 13px; padding: 8px 16px; }
-    </style>
-</head>
-<body>
-    <div class="chat-container">
-        <div class="chat-header">
-            <h1>StockSense AI</h1>
-            <p>Ask anything about your warehouse stock in plain English or Hindi</p>
-        </div>
-        <div class="messages" id="messages">
-            <div class="message ai">
-                <div class="label">StockSense AI</div>
-                Namaste! Main tumhara stock assistant hoon. Mujhse kuch bhi poocho apne warehouse ke baare mein. Neeche kuch suggestions hain:
-            </div>
-        </div>
-        <div class="suggestions" id="suggestions">
-            <span class="suggestion" onclick="askSuggestion(this)">Lowest stock items</span>
-            <span class="suggestion" onclick="askSuggestion(this)">Total stock value</span>
-            <span class="suggestion" onclick="askSuggestion(this)">Items needing reorder</span>
-            <span class="suggestion" onclick="askSuggestion(this)">Warehouse summary</span>
-            <span class="suggestion" onclick="askSuggestion(this)">Out of stock items</span>
-            <span class="suggestion" onclick="askSuggestion(this)">Recent movements</span>
-        </div>
-        <div class="input-area">
-            <input type="text" id="questionInput" placeholder="Apna sawal poocho..." onkeypress="if(event.key==='Enter') sendQuestion()">
-            <button id="sendBtn" onclick="sendQuestion()">Ask</button>
-        </div>
-    </div>
-
-    <script>
-        const messagesDiv = document.getElementById('messages');
-        const input = document.getElementById('questionInput');
-        const sendBtn = document.getElementById('sendBtn');
-
-        function addMessage(text, type) {
-            const msg = document.createElement('div');
-            msg.className = 'message ' + type;
-            if (type === 'ai') {
-                msg.innerHTML = '<div class="label">StockSense AI</div>' + escapeHtml(text);
-            } else {
-                msg.textContent = text;
-            }
-            messagesDiv.appendChild(msg);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function askSuggestion(el) {
-            input.value = el.textContent;
-            sendQuestion();
-        }
-
-        async function sendQuestion() {
-            const question = input.value.trim();
-            if (!question) return;
-
-            addMessage(question, 'user');
-            input.value = '';
-            sendBtn.disabled = true;
-
-            const typing = document.createElement('div');
-            typing.className = 'typing';
-            typing.textContent = 'Thinking...';
-            messagesDiv.appendChild(typing);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-            try {
-                const res = await fetch('/api/ask', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question })
-                });
-                const data = await res.json();
-                typing.remove();
-                addMessage(data.answer || data.error || 'No response', 'ai');
-            } catch (err) {
-                typing.remove();
-                addMessage('Error connecting to server: ' + err.message, 'ai');
-            }
-
-            sendBtn.disabled = false;
-            input.focus();
-        }
-
-        input.focus();
-    </script>
-</body>
-</html>'''
-
-
-# --- Start Server ---
 if __name__ == "__main__":
     PORT = 5000
     print("=" * 60)
-    print("  StockSense AI Query API Server")
+    print("  StockSense AI API Server v2 (Real-Time ERPNext)")
     print("=" * 60)
-    print(f"  Chat UI:  http://localhost:{PORT}")
-    print(f"  API:      http://localhost:{PORT}/api/ask")
-    print(f"  Health:   http://localhost:{PORT}/api/health")
+    print(f"  Stats:    http://localhost:{PORT}/api/dashboard/stats")
+    print(f"  Stock:    http://localhost:{PORT}/api/dashboard/stock")
+    print(f"  Activity: http://localhost:{PORT}/api/dashboard/activity")
+    print(f"  Chat:     http://localhost:{PORT}/api/ask")
+    print(f"  NLP:      {'Loaded' if NLP_AVAILABLE else 'Fallback mode'}")
     print("=" * 60)
 
-    server = HTTPServer(('0.0.0.0', PORT), AIQueryHandler)
+    server = HTTPServer(('0.0.0.0', PORT), APIHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

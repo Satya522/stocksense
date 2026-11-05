@@ -15,15 +15,17 @@
 
 | Technology | Role in StockSense |
 |---|---|
+| **React 19 + Vite** | Modern Command Center Frontend (Dashboard, Inventory, Forecasts, Anomalies, AI Chat) |
+| **Tailwind CSS + Recharts** | High-performance responsive charts, telemetry rings, and glassmorphism UI |
 | **ERPNext (Docker)** | Core ERP — Items, Stock, Sales Orders, Purchase Orders |
 | **MariaDB / MySQL** | ERPNext's underlying database — direct SQL analytics |
 | **Power Query (M)** | ETL layer — transform and shape data for dashboards |
 | **Power BI** | Interactive BI dashboards for stock, sales, and ops KPIs |
-| **Python** | Data scripts, API integration, forecasting, anomaly detection |
+| **Python / FastAPI / HTTP** | REST API server, ML demand forecasting (GBR), Z-Score anomaly detection |
 | **Excel VBA** | Bulk operations macros calling ERPNext REST API |
 | **Google Apps Script** | Google Forms → ERPNext automation (Material Requests) |
 | **JavaScript** | ERPNext client-side customization |
-| **Docker Compose** | Full-stack containerised deployment (Phase 4) |
+| **Docker Compose** | Full-stack containerised deployment |
 
 ---
 
@@ -31,13 +33,15 @@
 
 ```
 stocksense/
+├── stocksense-frontend/     → React 19 + Vite Command Center web application
 ├── erpnext-setup/           → Docker connection notes & custom DocType docs
-├── excel-automation/        → VBA macros for bulk order processing (Phase 2)
-├── sheets-automation/       → Google Apps Script automation (Phase 2)
+├── excel-automation/        → VBA macros for bulk order processing
+├── sheets-automation/       → Google Apps Script automation
 ├── sql-analytics/           → Read-only SQL analytics queries against ERPNext DB
 ├── power-query/             → Power Query M scripts for ETL transformations
 ├── powerbi-dashboards/      → Power BI setup guide & M query templates
-├── python/                  → Python scripts: API tests, data analysis, AI (Phase 3-4)
+├── python/                  → Python REST API, forecasting, anomaly detection, AI query engine
+├── data/                    → Seed datasets, forecast reports, and verification scripts
 ├── docs/                    → Architecture diagrams & project roadmap
 ├── .gitignore
 └── README.md                → You are here
@@ -45,68 +49,61 @@ stocksense/
 
 ---
 
-## 🚀 Getting Started (Phase 1)
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Docker with ERPNext running locally
+- Node.js 18+ (for Frontend)
 - Python 3.10+
-- Power BI Desktop
+- Docker with ERPNext (optional for live database sync; sample fallbacks included)
+- Power BI Desktop (for .pbix dashboards)
 - Git
 
-### Step 1 — Clone & set up Python environment
+### 1. Launch Modern React Command Center (Frontend)
 
 ```bash
-cd stocksense/python
+cd stocksense-frontend
+npm install
+npm run dev
+```
+
+Visit `http://localhost:5173` to explore:
+- **Operations Dashboard**: Real-time KPI rail, stock valuation, inventory health ring, top items bar chart.
+- **Virtualized Inventory Table**: Blazing-fast filtering, Excel-style conditional filters, 10 export formats (CSV, Excel, TSV, JSON, SQL, HTML, Markdown, etc.), Edit / Reorder / Add modals.
+- **ML Demand Forecasts**: Recharts interactive demand projection vs actuals, item-level predictions, and confidence indicators.
+- **Anomaly Detection**: Statistical Z-Score and IQR outliers, critical alert ribbons, and one-click resolution.
+- **AI Stock Assistant**: Natural language query engine with Hindi & English conversational support.
+
+### 2. Launch Python API & ML Forecasting Engine (Backend)
+
+```bash
+cd python
 python -m venv venv
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # macOS / Linux
 pip install -r requirements.txt
+python src/ai_query_api.py
 ```
 
-### Step 2 — Configure your environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and fill in your ERPNext URL, API key/secret, and MariaDB credentials.
-
-> **How to get ERPNext API keys:**
-> 1. Log in to your ERPNext site (e.g. `http://localhost:8000`)
-> 2. Go to **Settings → User** → select your user
-> 3. Scroll to **API Access** → click **Generate Keys**
-> 4. Copy the API Key and API Secret into your `.env`
-
-### Step 3 — Test connections
-
-```bash
-cd python
-python src/test_connection.py
-```
-
-You should see Item counts from both the REST API and direct database connections.
-
-### Step 4 — Run SQL queries
-
-Use any MySQL/MariaDB client (DBeaver, MySQL Workbench, or the `mysql` CLI) to run
-the queries in `sql-analytics/queries/` against your ERPNext database.
-
-### Step 5 — Connect Power BI
-
-Follow the instructions in `powerbi-dashboards/README.md` to connect Power BI
-Desktop to your local MariaDB and start building dashboards.
+API will run on `http://localhost:5000`:
+- `GET  /api/health` — Service health
+- `GET  /api/dashboard/stats` — Summary metrics
+- `GET  /api/dashboard/stock` — Inventory telemetry
+- `GET  /api/forecasts` — Predictive demand forecasts
+- `GET  /api/anomalies` — Z-Score anomaly reports
+- `POST /api/ask` — Natural language AI queries
 
 ---
 
-## 🗺️ Roadmap
+## 🗺️ Roadmap & Milestones
 
 | Phase | Focus | Status |
 |---|---|---|
-| **Phase 1** | ERPNext + SQL + Power BI core dashboard | 🟢 Current |
-| **Phase 2** | Excel VBA + Google Sheets/Apps Script automation | ⬜ Planned |
-| **Phase 3** | Power Query multi-source ETL + Python forecasting | ⬜ Planned |
-| **Phase 4** | AI NLP layer + JS ERPNext customization + Docker Compose | ⬜ Planned |
+| **Phase 1** | ERPNext + SQL + Power BI core dashboard | ✅ Complete |
+| **Phase 2** | Excel VBA + Google Sheets/Apps Script automation | ✅ Complete |
+| **Phase 3** | Power Query multi-source ETL + Python ML forecasting | ✅ Complete |
+| **Phase 4** | AI NLP layer + JS ERPNext customization + Docker Compose | ✅ Complete |
+| **Phase 5** | React 19 Command Center + Virtualized Inventory & Real-Time Telemetry | ✅ Complete |
 
 See the full roadmap → [`docs/roadmap.md`](docs/roadmap.md)
 
