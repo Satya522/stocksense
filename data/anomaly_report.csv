@@ -1,0 +1,5 @@
+name,item_code,warehouse,posting_date,actual_qty,qty_after_transaction,voucher_type,voucher_no,z_score,anomaly_type
+SLE-00142,SKE-SK ME-623,WH-North,2026-09-18,-85.0,15.0,Stock Entry,MAT-STE-2026-00041,3.42,Spike Outflow
+SLE-00189,SKI-SK PE-521,WH-East,2026-09-21,-120.0,5.0,Delivery Note,MAT-DN-2026-00088,4.15,Spike Outflow
+SLE-00215,SKMOB-SK DC-320,WH-South,2026-09-24,250.0,310.0,Purchase Receipt,MAT-PR-2026-00104,2.88,Unusual Bulk Inflow
+SLE-00267,SKFC-SK PR-551,WH-Central,2026-09-26,-95.0,2.0,Stock Entry,MAT-STE-2026-00079,3.12,Spike Outflow

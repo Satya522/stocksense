@@ -239,13 +239,13 @@ def get_stock_data():
     overrides = load_overrides()
     stock_map = {f"{r.get('item_code')}-{r.get('warehouse')}": dict(r) for r in rows}
 
-    for key, mod in overrides.get("updates", {}).items():
-        if key in stock_map:
-            stock_map[key].update(mod)
-
     for added in overrides.get("additions", []):
         key = f"{added.get('item_code')}-{added.get('warehouse')}"
         stock_map[key] = dict(added)
+
+    for key, mod in overrides.get("updates", {}).items():
+        if key in stock_map:
+            stock_map[key].update(mod)
 
     # Filter out deleted items
     deletions = set(overrides.get("deletions", []))
@@ -329,6 +329,11 @@ def add_inventory_item(item_data):
     additions = [a for a in overrides.get("additions", []) if not (a.get("item_code") == code and a.get("warehouse") == warehouse)]
     additions.insert(0, new_item)
     overrides["additions"] = additions
+
+    # Remove from deletions list if previously deleted
+    key = f"{code}-{warehouse}"
+    overrides["deletions"] = [d for d in overrides.get("deletions", []) if d not in (key, code)]
+
     save_overrides(overrides)
 
     return {
@@ -381,6 +386,18 @@ def update_inventory_item(item_data):
     mod["updated_at"] = datetime.now().isoformat()
 
     overrides.setdefault("updates", {})[key] = mod
+
+    # Also update within additions if previously added locally
+    for added in overrides.get("additions", []):
+        if added.get("item_code") == code and (not warehouse or added.get("warehouse") == warehouse):
+            if qty is not None: added["qty"] = qty
+            if reorder is not None: added["reorder_level"] = reorder
+            if rate is not None:
+                added["valuation_rate"] = rate
+                if qty is not None: added["stock_value"] = qty * rate
+            if name: added["item_name"] = name
+            added["updated_at"] = mod["updated_at"]
+
     save_overrides(overrides)
 
     return {
