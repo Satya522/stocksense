@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 export async function fetchJson(endpoint) {
   try {
@@ -21,6 +21,42 @@ export const api = {
   dashboardWarehouses: () => fetchJson('/api/dashboard/warehouses'),
   forecasts: () => fetchJson('/api/forecasts'),
   anomalies: () => fetchJson('/api/anomalies'),
+  addItem: async (item) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/inventory/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+      });
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  },
+  updateItem: async (item) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/inventory/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+      });
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  },
+  createReorder: async (order) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order),
+      });
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  },
   ask: async (question) => {
     try {
       const res = await fetch(`${API_BASE}/api/ask`, {

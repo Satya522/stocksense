@@ -334,13 +334,23 @@ export default function Inventory() {
     setActiveModal('edit');
   };
 
-  const handleSaveEdit = (e) => {
+  const handleSaveEdit = async (e) => {
     e.preventDefault();
     if (!selectedItem) return;
     const newQty = Number(formData.qty);
     const newReorder = Number(formData.reorder);
     const newStatus = newQty <= 0 ? 'critical' : newQty < newReorder ? 'critical' : newQty <= newReorder * 1.5 ? 'warning' : 'healthy';
     const fillPct = Math.min(Math.max((newQty / (newReorder * 3 || 1)) * 100, 0), 100);
+
+    // Call backend API for permanent MariaDB / local persistence
+    const res = await api.updateItem({
+      code: selectedItem.code,
+      warehouse: formData.warehouse || selectedItem.warehouse,
+      name: formData.name,
+      qty: newQty,
+      reorder: newReorder,
+      rate: Number(formData.value) && newQty ? Number(formData.value) / newQty : 100
+    });
 
     setStockData(prev => prev.map(row => {
       if (row.id === selectedItem.id) {
@@ -358,7 +368,7 @@ export default function Inventory() {
       return row;
     }));
     setActiveModal(null);
-    showToast(`Stock updated for ${formData.name}`);
+    showToast(res?.message || `Stock updated for ${formData.name}`);
   };
 
   const handleOpenReorder = (item) => {
@@ -372,12 +382,28 @@ export default function Inventory() {
     setActiveModal('reorder');
   };
 
-  const handleSaveReorder = (e) => {
+  const handleSaveReorder = async (e) => {
     e.preventDefault();
     if (!selectedItem) return;
     const addedQty = Number(formData.reorderQty) || 0;
+
+    // Call backend API to trigger ERPNext Material Request / Reorder logger
+    const res = await api.createReorder({
+      item_code: selectedItem.code,
+      item_name: selectedItem.name,
+      warehouse: selectedItem.warehouse,
+      qty: addedQty,
+      priority: formData.urgency || 'High',
+      supplier: formData.supplier || 'Apex Industrial Tech (Primary)',
+      notes: formData.notes || ''
+    });
+
     setActiveModal(null);
-    showToast(`Purchase requisition for ${addedQty} units of ${selectedItem.name} submitted!`);
+    if (res?.order_id) {
+      showToast(`Requisition ${res.order_id} placed! ${res.erp_synced ? '(ERPNext Synced)' : '(Logged)'}`);
+    } else {
+      showToast(`Purchase requisition for ${addedQty} units of ${selectedItem.name} submitted!`);
+    }
   };
 
   const handleOpenDetails = (item) => {
@@ -397,7 +423,7 @@ export default function Inventory() {
     setActiveModal('add');
   };
 
-  const handleSaveAdd = (e) => {
+  const handleSaveAdd = async (e) => {
     e.preventDefault();
     if (!formData.name) return;
     const qty = Number(formData.qty) || 0;
@@ -405,6 +431,16 @@ export default function Inventory() {
     const rate = Number(formData.rate) || 100;
     const status = qty <= 0 ? 'critical' : qty < reorder ? 'critical' : qty <= reorder * 1.5 ? 'warning' : 'healthy';
     const fillPct = Math.min(Math.max((qty / (reorder * 3 || 1)) * 100, 0), 100);
+
+    // Call backend API for permanent MariaDB / local persistence
+    const res = await api.addItem({
+      code: formData.code,
+      name: formData.name,
+      warehouse: formData.warehouse,
+      qty: qty,
+      reorder: reorder,
+      rate: rate
+    });
 
     const newItem = {
       id: `${formData.code}-${formData.warehouse}-${Date.now()}`,
@@ -420,7 +456,7 @@ export default function Inventory() {
 
     setStockData(prev => [newItem, ...prev]);
     setActiveModal(null);
-    showToast(`New item "${formData.name}" added to inventory!`);
+    showToast(res?.message || `New item "${formData.name}" added to inventory!`);
   };
   
   // filters: { [colKey]: { in: [], condOp: '', condVal: '', type: 'number'|'text' } }
