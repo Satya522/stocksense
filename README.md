@@ -86,12 +86,36 @@ python src/ai_query_api.py
 ```
 
 API will run on `http://localhost:5000`:
-- `GET  /api/health` — Service health
-- `GET  /api/dashboard/stats` — Summary metrics
-- `GET  /api/dashboard/stock` — Inventory telemetry
-- `GET  /api/forecasts` — Predictive demand forecasts
-- `GET  /api/anomalies` — Z-Score anomaly reports
-- `POST /api/ask` — Natural language AI queries
+- `GET    /api/health` — Service health
+- `GET    /api/dashboard/stats` — Summary metrics
+- `GET    /api/dashboard/stock` — Inventory telemetry
+- `POST   /api/inventory/add` — Create new SKU & stock item
+- `POST   /api/inventory/update` — Update stock level & reorder points
+- `POST   /api/inventory/delete` — Delete item from inventory
+- `POST   /api/reorder` — Trigger ERPNext Material Request & order log
+- `GET    /api/forecasts` — Predictive demand forecasts (GradientBoosting)
+- `GET    /api/anomalies` — Z-Score & IQR anomaly reports
+- `POST   /api/ask` — Natural language AI queries (Hindi + English)
+
+### 3. Run Entire Enterprise Platform with Docker Compose
+
+To boot the full-stack system (ERPNext, MariaDB, Redis, Python Analytics API & React Frontend) with a single command:
+
+```bash
+docker compose -f deployment/docker-compose.stocksense.yml up -d
+```
+
+- **React Command Center**: `http://localhost:3000`
+- **Python ML REST API**: `http://localhost:5000`
+- **ERPNext Enterprise Portal**: `http://localhost:8080`
+- **MariaDB Database**: `localhost:3306`
+
+---
+
+## ☁️ Cloud Deployment & CI/CD
+
+- **GitHub Actions CI/CD**: Automatic build verification on push configured in `.github/workflows/ci.yml`.
+- **Vercel Frontend Deployment**: Pre-configured with `stocksense-frontend/vercel.json` for one-click static deployment.
 
 ---
 

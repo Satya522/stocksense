@@ -247,7 +247,13 @@ def get_stock_data():
         key = f"{added.get('item_code')}-{added.get('warehouse')}"
         stock_map[key] = dict(added)
 
-    merged_rows = list(stock_map.values())
+    # Filter out deleted items
+    deletions = set(overrides.get("deletions", []))
+    merged_rows = [
+        row for key, row in stock_map.items()
+        if key not in deletions and row.get('item_code') not in deletions
+    ]
+
     for row in merged_rows:
         qty = float(row.get('qty', 0))
         reorder = float(row.get('reorder_level', 0))
@@ -382,6 +388,56 @@ def update_inventory_item(item_data):
         "message": f"Item {code} updated successfully",
         "db_synced": db_persisted,
         "item": { "item_code": code, "warehouse": warehouse, **mod }
+    }
+
+
+def delete_inventory_item(item_data):
+    """
+    Deletes an inventory item from MariaDB if connected and persists deletion to data/inventory_overrides.json.
+    """
+    code = (item_data.get('code') or item_data.get('item_code') or '').strip()
+    warehouse = (item_data.get('warehouse') or '').strip()
+    if not code:
+        return {"success": False, "error": "Item code is required"}
+
+    db_persisted = False
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        try:
+            with conn.cursor() as cur:
+                if warehouse:
+                    cur.execute("DELETE FROM `tabBin` WHERE item_code = %s AND warehouse = %s", (code, warehouse))
+                    cur.execute("DELETE FROM `tabItem Reorder` WHERE parent = %s AND warehouse = %s", (code, warehouse))
+                else:
+                    cur.execute("DELETE FROM `tabBin` WHERE item_code = %s", (code,))
+                    cur.execute("DELETE FROM `tabItem Reorder` WHERE parent = %s", (code,))
+                    cur.execute("DELETE FROM `tabItem` WHERE name = %s", (code,))
+            conn.commit()
+            db_persisted = True
+        finally:
+            conn.close()
+    except Exception as e:
+        pass
+
+    overrides = load_overrides()
+    deletions = set(overrides.get("deletions", []))
+    target_key = f"{code}-{warehouse}" if warehouse else code
+    deletions.add(target_key)
+    overrides["deletions"] = list(deletions)
+
+    overrides["additions"] = [
+        a for a in overrides.get("additions", [])
+        if not (a.get("item_code") == code and (not warehouse or a.get("warehouse") == warehouse))
+    ]
+    if target_key in overrides.get("updates", {}):
+        overrides["updates"].pop(target_key, None)
+
+    save_overrides(overrides)
+
+    return {
+        "success": True,
+        "message": f"Item {code} deleted successfully",
+        "db_synced": db_persisted
     }
 
 
@@ -583,6 +639,10 @@ class APIHandler(BaseHTTPRequestHandler):
             result = update_inventory_item(data)
             self._json(200 if result["success"] else 400, result)
 
+        elif p == '/api/inventory/delete':
+            result = delete_inventory_item(data)
+            self._json(200 if result["success"] else 400, result)
+
         elif p == '/api/reorder':
             result = create_reorder_request(data)
             self._json(201 if result["success"] else 400, result)
@@ -592,6 +652,11 @@ class APIHandler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         if self.path == '/api/inventory/update':
+            return self.do_POST()
+        self._json(404, {"error": "Not found"})
+
+    def do_DELETE(self):
+        if self.path == '/api/inventory/delete' or self.path.startswith('/api/inventory'):
             return self.do_POST()
         self._json(404, {"error": "Not found"})
 
@@ -698,7 +763,7 @@ class APIHandler(BaseHTTPRequestHandler):
 
     def _cors(self):
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
     def log_message(self, fmt, *args):
@@ -714,6 +779,7 @@ if __name__ == "__main__":
     print(f"  Stock:     GET  http://localhost:{PORT}/api/dashboard/stock")
     print(f"  Add Item:  POST http://localhost:{PORT}/api/inventory/add")
     print(f"  Update:    POST http://localhost:{PORT}/api/inventory/update")
+    print(f"  Delete:    POST http://localhost:{PORT}/api/inventory/delete")
     print(f"  Reorder:   POST http://localhost:{PORT}/api/reorder")
     print(f"  Chat:      POST http://localhost:{PORT}/api/ask")
     print(f"  NLP:       {'Loaded' if NLP_AVAILABLE else 'Fallback mode'}")

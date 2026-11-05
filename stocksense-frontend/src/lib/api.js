@@ -45,6 +45,18 @@ export const api = {
       return { success: false, error: err.message };
     }
   },
+  deleteItem: async (item) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/inventory/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+      });
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  },
   createReorder: async (order) => {
     try {
       const res = await fetch(`${API_BASE}/api/reorder`, {

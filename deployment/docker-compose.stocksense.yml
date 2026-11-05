@@ -123,6 +123,41 @@ services:
     networks:
       - stocksense-net
 
+  # --- StockSense Python Analytics & REST API ---
+  stocksense-api:
+    build:
+      context: ../python
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=${DB_USER:-_7e269a3c97126b3e}
+      - DB_PASSWORD=${DB_PASSWORD:-1yicUiN4GddjNihq}
+      - DB_NAME=${DB_NAME:-_7e269a3c97126b3e}
+      - ERPNEXT_URL=http://frontend:8080
+      - ERPNEXT_API_KEY=${ERPNEXT_API_KEY:-}
+      - ERPNEXT_API_SECRET=${ERPNEXT_API_SECRET:-}
+    depends_on:
+      - db
+    networks:
+      - stocksense-net
+
+  # --- StockSense React Command Center Frontend ---
+  stocksense-frontend:
+    build:
+      context: ../stocksense-frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - stocksense-api
+    networks:
+      - stocksense-net
+
 volumes:
   db-data-vol:
   sites-vol:

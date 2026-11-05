@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { PackageSearch, RefreshCw, Search, ListFilter, ChevronDown, Download, Edit2, ShoppingCart, MoreVertical, Plus, X, Check, Eye, AlertCircle } from 'lucide-react';
+import { PackageSearch, RefreshCw, Search, ListFilter, ChevronDown, Download, Edit2, ShoppingCart, MoreVertical, Plus, X, Check, Eye, AlertCircle, Trash2 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { api } from '../lib/api';
@@ -369,6 +369,15 @@ export default function Inventory() {
     }));
     setActiveModal(null);
     showToast(res?.message || `Stock updated for ${formData.name}`);
+  };
+
+  const handleDeleteItem = async (item) => {
+    if (!item) return;
+    if (!window.confirm(`Are you sure you want to delete ${item.name} (${item.code}) from warehouse ${item.warehouse}?`)) return;
+    const res = await api.deleteItem({ code: item.code, warehouse: item.warehouse });
+    setStockData(prev => prev.filter(row => !(row.code === item.code && row.warehouse === item.warehouse)));
+    setActiveModal(null);
+    showToast(res?.message || `Item ${item.name} deleted.`);
   };
 
   const handleOpenReorder = (item) => {
@@ -961,6 +970,10 @@ export default function Inventory() {
                 </div>
               </div>
               <div className="modal-footer">
+                <button type="button" className="btn-secondary" style={{ marginRight: 'auto', color: '#F5455C', borderColor: 'rgba(245,69,92,0.3)' }} onClick={() => handleDeleteItem(selectedItem)}>
+                  <Trash2 size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: -1 }} />
+                  Delete
+                </button>
                 <button type="button" className="btn-secondary" onClick={() => setActiveModal(null)}>Cancel</button>
                 <button type="submit" className="btn-primary">Save Changes</button>
               </div>

@@ -1,0 +1,58 @@
+name: StockSense CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  frontend-build:
+    name: Frontend Lint & Build (Vite + React 19)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: stocksense-frontend/package.json
+
+      - name: Install Frontend Dependencies
+        working-directory: stocksense-frontend
+        run: npm install
+
+      - name: Build Production Bundle
+        working-directory: stocksense-frontend
+        run: npm run build
+
+  backend-verification:
+    name: Backend Python Verification & Health Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: python/requirements.txt
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r python/requirements.txt
+
+      - name: Verify Python Syntax & Modules
+        run: |
+          python -m py_compile python/src/ai_query_api.py
+          python -m py_compile python/src/demand_forecast.py
+          python -m py_compile python/src/anomaly_detection.py
+          python -m py_compile python/src/ai_stock_query.py
