@@ -24,7 +24,7 @@ const integrations = [
     icon: Database,
     color: '#06b6d4',
     desc: 'ERPNext database — direct SQL access for analytics, queries, and real-time data extraction.',
-    tech: 'Port 3306 · pymysql · SQLAlchemy',
+    tech: 'Port 3307 · pymysql · SQLAlchemy',
     status: 'connected',
     position: 'center',
   },

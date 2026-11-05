@@ -368,7 +368,7 @@ export default function Forecasts() {
                 </div>
                 
                 <span className="text-[12px] font-bold text-white/80 font-mono w-10 text-right tracking-tighter">
-                  <CountUp to={item.confidence} suffix="%" />
+                  {item.confidence}%
                 </span>
               </div>
             ))}

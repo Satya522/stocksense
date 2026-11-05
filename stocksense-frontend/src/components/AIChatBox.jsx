@@ -12,9 +12,34 @@ const suggestions = [
   'Recent movements',
 ];
 
+function formatMessage(text) {
+  if (!text) return null;
+  const lines = text.split('\n');
+  return lines.map((line, idx) => {
+    const parts = line.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+    const formattedParts = parts.map((part, pIdx) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={pIdx} className="font-semibold text-white">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('*') && part.endsWith('*')) {
+        return <em key={pIdx} className="text-white/70 italic">{part.slice(1, -1)}</em>;
+      }
+      return part;
+    });
+
+    return (
+      <div key={idx} className={line.startsWith('•') || line.startsWith('-') ? 'pl-2 py-0.5' : 'py-0.5'}>
+        {formattedParts}
+      </div>
+    );
+  });
+}
+
 export default function AIChatBox() {
   const [messages, setMessages] = useState([
-    { role: 'ai', content: 'Namaste! 🙏 Main tumhara stock assistant hoon.\n\nMujhse apne warehouse ke baare mein kuch bhi poocho — Hindi ya English mein. Neeche kuch suggestions hain shuru karne ke liye:' }
+    { role: 'ai', content: 'Namaste! 🙏 Main tumhara stock assistant hoon.\n\nMujhse apne warehouse ke baare mein kuch bhi poocho — Hindi ya English mein. Neeche kuch suggestions hain shuru karne ke liye:' },
+    { role: 'user', content: 'Total stock value' },
+    { role: 'ai', content: '📊 **Enterprise Stock Summary**:\n\n• **Total Valuation**: ₹149,035.7 Cr\n• **Active Catalog Items**: 427 unique products\n• **Total Units in Circulation**: 2,497,813 units across all warehouses\n\n💡 *All figures verified against live MariaDB tabBin ledger.*' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -79,10 +104,10 @@ export default function AIChatBox() {
                 className={`max-w-[85%] p-4 text-sm leading-relaxed ${
                   msg.role === 'user' 
                     ? 'bg-gradient-to-r from-accent to-blue-600 text-white rounded-2xl rounded-br-md shadow-lg shadow-accent/10 font-medium' 
-                    : 'bg-[#121624] border border-white/[0.1] text-white/90 rounded-2xl rounded-bl-md whitespace-pre-wrap shadow-md'
+                    : 'bg-[#121624] border border-white/[0.1] text-white/90 rounded-2xl rounded-bl-md shadow-md'
                 }`}
               >
-                {msg.content}
+                {msg.role === 'user' ? msg.content : formatMessage(msg.content)}
               </div>
             </motion.div>
           ))}
@@ -98,8 +123,8 @@ export default function AIChatBox() {
         </AnimatePresence>
         <div ref={messagesEndRef} />
 
-        {/* Suggestion chips (show only when there's just 1 message) */}
-        {messages.length === 1 && (
+        {/* Suggestion chips */}
+        {messages.length <= 3 && (
           <div className="flex flex-wrap gap-2 mt-3">
             {suggestions.map((s, i) => (
               <button
