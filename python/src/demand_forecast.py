@@ -159,6 +159,18 @@ def generate_forecast_report(forecast_df):
 def predict_demand():
     """Returns demand forecast results as a list of dictionaries for API consumers."""
     csv_path = Path(__file__).resolve().parent.parent.parent / "data" / "demand_forecast_results.csv"
+
+    # Query item names from database if available
+    item_names = {}
+    try:
+        engine = get_db_engine()
+        with engine.connect() as conn:
+            res = conn.execute(text("SELECT name, item_name FROM tabItem WHERE is_stock_item = 1"))
+            for row in res.fetchall():
+                item_names[row[0]] = row[1]
+    except Exception:
+        pass
+
     if csv_path.exists():
         try:
             df = pd.read_csv(csv_path)
@@ -175,6 +187,9 @@ def predict_demand():
                         clean[k] = int(v)
                     else:
                         clean[k] = v
+                code = clean.get("item_code")
+                if code and code in item_names:
+                    clean["item_name"] = item_names[code]
                 clean_records.append(clean)
             return clean_records
         except Exception as e:

@@ -87,11 +87,16 @@ const CustomAreaTooltip = ({ active, payload, label }) => {
 // Custom Tooltip for Bar Chart
 const CustomBarTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
+    const item = payload[0].payload;
     return (
-      <div className="bg-[#050505]/80 backdrop-blur-3xl border border-white/10 px-4 py-3 rounded-[12px] shadow-[0_8px_20px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.1)] flex items-center gap-4">
-        <span className="text-white/60 font-medium text-[13px]">{payload[0].payload.name}</span>
-        <div className="w-[1px] h-3 bg-white/10" />
-        <span className="text-white font-bold font-mono text-[13px] tracking-tight">{payload[0].value}</span>
+      <div className="bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-3">
+        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.fill }} />
+        <div className="flex flex-col">
+          <span className="text-white font-medium text-xs">{item.fullName || item.name}</span>
+          {item.code && <span className="text-white/40 text-[10px] font-mono">{item.code}</span>}
+        </div>
+        <div className="w-[1px] h-4 bg-white/10 mx-1" />
+        <span className="text-white font-bold font-mono text-sm whitespace-nowrap">{payload[0].value} <small className="text-white/40 font-normal">units/wk</small></span>
       </div>
     );
   }
@@ -124,10 +129,18 @@ export default function Forecasts() {
 
   const dynamicItemForecast = data.length > 0
     ? data.slice(0, 8).map((d, i) => {
-        const clean = (d.item_code || '').replace(/^SK[A-Z]*-SK\s*/i, '').replace(/^SK-/i, '');
+        let label = d.item_name ? d.item_name.replace(/^SK\s*/i, '').trim() : '';
+        if (!label) {
+          label = (d.item_code || '').replace(/^SK[A-Z]*-SK\s*/i, '').replace(/^SK-/i, '').trim();
+        }
+        if (label.length > 18) {
+          label = label.slice(0, 17) + '…';
+        }
         const demand = Math.round(Number(d.weekly_demand_forecast) || (Number(d.avg_daily_demand_forecast) ? Number(d.avg_daily_demand_forecast) * 7 : 45));
         return {
-          name: clean.length > 10 ? clean.slice(0, 10) : clean,
+          name: label,
+          fullName: d.item_name || d.item_code,
+          code: d.item_code,
           demand,
           fill: NEON_COLORS[i % NEON_COLORS.length]
         };
@@ -136,11 +149,19 @@ export default function Forecasts() {
 
   const dynamicConfidence = data.length > 0
     ? data.slice(0, 6).map(d => {
-        const clean = (d.item_code || '').replace(/^SK[A-Z]*-SK\s*/i, '').replace(/^SK-/i, '');
+        let label = d.item_name ? d.item_name.replace(/^SK\s*/i, '').trim() : '';
+        if (!label) {
+          label = (d.item_code || '').replace(/^SK[A-Z]*-SK\s*/i, '').replace(/^SK-/i, '').trim();
+        }
+        if (label.length > 18) {
+          label = label.slice(0, 17) + '…';
+        }
         const mae = Number(d.mae) || 2.5;
         const confidence = Math.max(68, Math.min(97, Math.round(100 - mae * 4.2)));
         return {
-          name: clean.length > 10 ? clean.slice(0, 10) : clean,
+          name: label,
+          fullName: d.item_name || d.item_code,
+          code: d.item_code,
           confidence
         };
       })
@@ -319,18 +340,18 @@ export default function Forecasts() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dynamicItemForecast} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" horizontal={false} />
-                <XAxis type="number" stroke="none" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 600 }} />
-                <YAxis dataKey="name" type="category" stroke="none" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 600 }} width={80} />
+                <XAxis type="number" stroke="none" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 600 }} />
+                <YAxis dataKey="name" type="category" stroke="none" tick={{ fill: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 500 }} width={140} />
                 <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} content={<CustomBarTooltip />} />
                 <Bar 
                   dataKey="demand" 
-                  radius={[0, 4, 4, 0]} 
+                  radius={[0, 6, 6, 0]} 
                   barSize={14}
-                  animationDuration={2000}
+                  animationDuration={1500}
                   animationEasing="ease-out"
                 >
                   {dynamicItemForecast.map((entry, i) => (
-                    <Cell key={i} fill={entry.fill} className="hover:brightness-125 transition-all duration-300 cursor-pointer drop-shadow-[0_0_8px_currentColor]" />
+                    <Cell key={i} fill={entry.fill} className="hover:opacity-85 transition-opacity cursor-pointer" />
                   ))}
                 </Bar>
               </BarChart>
@@ -347,18 +368,18 @@ export default function Forecasts() {
           <div className="flex flex-col gap-6 flex-1 justify-center">
             {dynamicConfidence.map((item, i) => (
               <div key={i} className="flex items-center gap-6 group">
-                <span className="text-[12px] text-white/40 font-bold tracking-wide w-20 shrink-0 group-hover:text-white/80 transition-colors duration-300">{item.name}</span>
+                <span className="text-[12px] text-white/75 font-semibold tracking-wide w-36 shrink-0 truncate group-hover:text-white transition-colors duration-300" title={item.fullName || item.name}>{item.name}</span>
                 
-                {/* Track with extreme inner shadow */}
-                <div className="flex-1 h-[6px] bg-[#000]/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),_0_1px_0_rgba(255,255,255,0.05)] rounded-full overflow-hidden relative">
+                {/* Track */}
+                <div className="flex-1 h-[7px] bg-[#000]/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),_0_1px_0_rgba(255,255,255,0.05)] rounded-full overflow-hidden relative">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${item.confidence}%` }}
                     transition={{ delay: 0.4 + i * 0.1, duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
-                    className={`h-full rounded-full relative overflow-hidden shadow-[0_0_12px_currentColor] ${
-                      item.confidence >= 90 ? 'bg-gradient-to-r from-[#00ff9d] to-[#00f0ff] text-[#00f0ff]' : 
-                      item.confidence >= 75 ? 'bg-gradient-to-r from-[#ffeb3b] to-[#ff9800] text-[#ffeb3b]' : 
-                      'bg-gradient-to-r from-[#ff007f] to-[#ff4d4d] text-[#ff007f]'
+                    className={`h-full rounded-full relative overflow-hidden ${
+                      item.confidence >= 90 ? 'bg-gradient-to-r from-[#00ff9d] to-[#00f0ff]' : 
+                      item.confidence >= 75 ? 'bg-gradient-to-r from-[#ffeb3b] to-[#ff9800]' : 
+                      'bg-gradient-to-r from-[#ff007f] to-[#ff4d4d]'
                     }`}
                   >
                     {/* Hard edge laser shimmer */}

@@ -25,7 +25,7 @@ import random
 import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 import pymysql
 from dotenv import load_dotenv
@@ -802,7 +802,7 @@ if __name__ == "__main__":
     print(f"  NLP:       {'Loaded' if NLP_AVAILABLE else 'Fallback mode'}")
     print("=" * 60)
 
-    server = HTTPServer(('0.0.0.0', PORT), APIHandler)
+    server = ThreadingHTTPServer(('0.0.0.0', PORT), APIHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
