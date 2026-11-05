@@ -8,14 +8,36 @@ import SystemMap from './pages/SystemMap';
 import AIChatBox from './components/AIChatBox';
 
 function App() {
-  const [activeTab, setActiveTab] = useState(() => {
+  const VALID_TABS = ['dashboard', 'inventory', 'forecasts', 'anomalies', 'system', 'chat'];
+
+  const getInitialTab = () => {
+    const hash = window.location.hash.replace('#', '').trim().toLowerCase();
+    if (VALID_TABS.includes(hash)) {
+      return hash;
+    }
     return localStorage.getItem('stocksense_active_tab') || 'dashboard';
-  });
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('stocksense_active_tab', activeTab);
+    if (window.location.hash.replace('#', '') !== activeTab) {
+      window.location.hash = activeTab;
+    }
   }, [activeTab]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '').trim().toLowerCase();
+      if (VALID_TABS.includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   return (
     <div className={`app-wrapper ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
