@@ -45,11 +45,13 @@ function formatIndianNumber(value) {
 
 function formatCurrency(value) {
   if (value === null || value === undefined || value === '') return '—';
-  // Extract number from strings like "14903573.1L" or "₹14903573"
+  if (typeof value === 'string' && (value.includes('Cr') || value.includes('₹') || value.includes('L') || value.includes('K'))) {
+    return value;
+  }
   const raw = String(value).replace(/[₹,L\s]/g, '');
   const num = parseFloat(raw);
   if (isNaN(num)) return String(value);
-  if (num >= 10000000) return `₹${(num / 10000000).toFixed(1)}Cr`;
+  if (num >= 10000000) return `₹${(num / 10000000).toLocaleString('en-IN', { maximumFractionDigits: 1 })} Cr`;
   if (num >= 100000) return `₹${(num / 100000).toFixed(1)}L`;
   if (num >= 1000) return `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(num)}`;
   return `₹${num}`;
@@ -138,7 +140,7 @@ function InventoryHealth({ data }) {
       <div className="ss-health__hero">
         <div>
           <div className="ss-health__total">{formatIndianNumber(total)}</div>
-          <div className="ss-meta-label">TOTAL ACTIVE ITEMS</div>
+          <div className="ss-meta-label">WAREHOUSE ALLOCATIONS (BINS)</div>
         </div>
         <div className="ss-health__score">
           <strong>{healthyPct}%</strong>
@@ -228,8 +230,7 @@ function TopItemsChart({ data }) {
                 fill="url(#stocksenseBarGradient)"
                 radius={[7, 7, 2, 2]}
                 maxBarSize={58}
-                isAnimationActive
-                animationDuration={700}
+                isAnimationActive={false}
               />
             </BarChart>
           </ResponsiveContainer>
@@ -253,15 +254,15 @@ function AISummary({ totalItems, stockValue, text }) {
       </div>
       <div className="ss-summary__grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '16px' }}>
         <div>
-          <span className="ss-mono-label">CURRENT_STATE / INVENTORY</span>
-          <strong>{formatIndianNumber(totalItems)}</strong>
+          <span className="ss-mono-label">CATALOG_SKUS / INVENTORY</span>
+          <strong>{formatIndianNumber(totalItems)} Items</strong>
         </div>
         <div>
           <span className="ss-mono-label">total_stock_value</span>
           <strong>{formatCurrency(stockValue)}</strong>
         </div>
       </div>
-      <div className="ss-summary__content" style={{ fontSize: '13px', lineHeight: '1.5', color: 'var(--text-secondary)' }}>
+      <div className="ss-summary__content" style={{ fontSize: '13px', lineHeight: '1.6', color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
         {text ? <p style={{ margin: 0 }}>{text}</p> : <div className="ss-empty">No AI insights generated yet.</div>}
       </div>
     </article>

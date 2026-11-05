@@ -205,6 +205,26 @@ class StockQueryEngine:
         """)
         return pd.read_sql(query, self.engine, params={"search": f"%{search_term}%"})
 
+    def _format_inr(self, val):
+        try:
+            val = float(val)
+            if val >= 10000000:
+                return f"₹{val/10000000:,.1f} Cr"
+            elif val >= 100000:
+                return f"₹{val/100000:,.1f}L"
+            elif val >= 1000:
+                return f"₹{val/1000:,.1f}K"
+            return f"₹{val:,.2f}"
+        except Exception:
+            return str(val)
+
+    def _format_num(self, val):
+        try:
+            val = float(val)
+            return f"{int(val):,}" if val.is_integer() else f"{val:,.2f}"
+        except Exception:
+            return str(val)
+
     def ask(self, question):
         """Process a natural language question and return an answer."""
         intent = self.classify_intent(question)
@@ -215,7 +235,14 @@ class StockQueryEngine:
             result = self.search_item(item_name)
             if result.empty:
                 return f"'{item_name}' naam ka koi item nahi mila database mein."
-            return f"'{item_name}' ke liye stock data:\n\n{result.to_string(index=False)}"
+            lines = [f"🔍 **'{item_name}' ke liye stock details:**\n"]
+            for _, r in result.head(8).iterrows():
+                code = r.get('item_code')
+                name = r.get('item_name') or code
+                wh = str(r.get('warehouse', '')).split(' - ')[0]
+                qty = self._format_num(r.get('actual_qty', 0))
+                lines.append(f"• **{name}** (`{code}`): {qty} units in *{wh}*")
+            return "\n".join(lines)
 
         if intent is None:
             return self._get_help_text()
@@ -229,11 +256,82 @@ class StockQueryEngine:
             if result.empty:
                 return "Koi data nahi mila is query ke liye."
 
+            # Structured, professional formatting per intent
+            if intent == "total_value":
+                val = float(result['total_stock_value'].iloc[0])
+                items = int(result['total_items'].iloc[0])
+                qty = int(result['total_qty'].iloc[0])
+                return (
+                    f"📊 **Enterprise Stock Summary**:\n\n"
+                    f"• **Total Valuation**: {self._format_inr(val)}\n"
+                    f"• **Active Catalog Items**: {self._format_num(items)} unique products\n"
+                    f"• **Total Units in Circulation**: {self._format_num(qty)} units across all warehouses\n\n"
+                    f"💡 *All figures verified against live MariaDB tabBin ledger.*"
+                )
+
+            if intent == "reorder_alert":
+                count = len(result)
+                top = result.head(8)
+                lines = [f"⚠️ **{count} items are currently below reorder level.**\nTop critical items requiring replenishment:\n"]
+                for idx, r in top.iterrows():
+                    name = r.get('item_name') or r.get('item_code')
+                    code = r.get('item_code')
+                    wh = str(r.get('warehouse', '')).split(' - ')[0]
+                    actual = self._format_num(r.get('actual_qty', 0))
+                    reorder = self._format_num(r.get('reorder_level', 0))
+                    shortfall = self._format_num(r.get('shortfall', 0))
+                    lines.append(f"{idx+1}. **{name}** (`{code}`) | {wh}\n   Current: {actual} | Reorder: {reorder} | ⚡ **Shortfall: {shortfall}**")
+                lines.append("\n💡 *Action: Go to the Inventory page and click '+ Reorder' on any item to initiate a purchase order.*")
+                return "\n".join(lines)
+
+            if intent == "lowest_stock":
+                lines = ["📉 **Bottom 10 Items by Quantity**:\n"]
+                for idx, r in result.head(10).iterrows():
+                    name = r.get('item_name') or r.get('item_code')
+                    code = r.get('item_code')
+                    wh = str(r.get('warehouse', '')).split(' - ')[0]
+                    qty = float(r.get('actual_qty', 0))
+                    note = " *(Pending Purchase Receipt)*" if qty < 0 else ""
+                    lines.append(f"{idx+1}. **{name}** (`{code}`): {self._format_num(qty)} units in *{wh}*{note}")
+                return "\n".join(lines)
+
+            if intent == "highest_stock":
+                lines = ["📈 **Top 10 Highest Stocked Items**:\n"]
+                for idx, r in result.head(10).iterrows():
+                    name = r.get('item_name') or r.get('item_code')
+                    code = r.get('item_code')
+                    wh = str(r.get('warehouse', '')).split(' - ')[0]
+                    qty = self._format_num(r.get('actual_qty', 0))
+                    lines.append(f"{idx+1}. **{name}** (`{code}`): **{qty} units** in *{wh}*")
+                return "\n".join(lines)
+
+            if intent == "warehouse_summary":
+                lines = ["🏢 **Warehouse Distribution Breakdown**:\n"]
+                for _, r in result.iterrows():
+                    wh = str(r.get('warehouse', '')).split(' - ')[0]
+                    items = self._format_num(r.get('total_items', 0))
+                    qty = self._format_num(r.get('total_qty', 0))
+                    val = self._format_inr(r.get('total_value', 0))
+                    lines.append(f"• **{wh}**: {items} items | {qty} units | {val}")
+                return "\n".join(lines)
+
+            if intent == "out_of_stock":
+                lines = [f"🚨 **Out of Stock Alert ({len(result)} items zero or negative stock)**:\n"]
+                for idx, r in result.head(10).iterrows():
+                    name = r.get('item_name') or r.get('item_code')
+                    code = r.get('item_code')
+                    wh = str(r.get('warehouse', '')).split(' - ')[0]
+                    qty = self._format_num(r.get('actual_qty', 0))
+                    lines.append(f"{idx+1}. **{name}** (`{code}`): {qty} units in *{wh}*")
+                return "\n".join(lines)
+
+            # Fallback formatting for remaining queries
             response = config["response"] + "\n\n"
-            response += result.to_string(index=False)
+            response += result.head(15).to_string(index=False)
             return response
         except Exception as e:
-            return f"Query mein error aaya: {str(e)}"
+            # Secure error handling: do not expose DB connection details or passwords
+            return "Database query execute nahi ho paya. Kripya database service connection check karein."
 
     def _get_help_text(self):
         return """

@@ -6,7 +6,7 @@
 ![React 19](https://img.shields.io/badge/React-19.0-61dafb?logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-8.3-646cff?logo=vite&logoColor=white)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776ab?logo=python&logoColor=white)
-![ERPNext](https://img.shields.io/badge/ERPNext-v15-0089FF?logo=frappe&logoColor=white)
+![ERPNext](https://img.shields.io/badge/ERPNext-v16%20%2F%20v15-0089FF?logo=frappe&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
@@ -123,8 +123,8 @@ graph TB
 | **Recharts** | Data Viz | Animated telemetry rings, stock breakdown bar charts, forecast lines |
 | **Python 3.11** | Backend & ML | Lightweight REST API, ML modeling, and data pipelines |
 | **Scikit-Learn & Pandas** | Machine Learning | Time-series feature engineering, Gradient Boosting, statistical Z-score/IQR |
-| **ERPNext (v15)** | ERP Backbone | Item master, Stock Ledger Entries, Bin records, and Material Requests |
-| **MariaDB** | Database | Underlying transactional database backing ERPNext |
+| **ERPNext (v16 / v15)** | ERP Backbone | Item master, Stock Ledger Entries, Bin records, and Material Requests |
+| **MariaDB (11.8 / 10.11)** | Database | Underlying transactional database backing ERPNext (Port 3307 / 3306) |
 | **Power BI & Power Query** | BI & Reporting | Executive business intelligence dashboards with automated M-queries |
 | **Docker & Docker Compose**| DevOps | Multi-container orchestration (`stocksense-api`, `stocksense-frontend`, ERPNext) |
 | **GitHub Actions** | CI/CD | Automated lint, build, syntax verification, and Pytest unit test pipeline |

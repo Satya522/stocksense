@@ -4,31 +4,11 @@ import { motion } from 'framer-motion';
 import { Activity, TrendingUp, Zap, ArrowUpRight } from 'lucide-react';
 import { api } from '../lib/api';
 
-// Count-Up Animation Component
-const CountUp = ({ to, duration = 1.5, decimals = 0, suffix = '' }) => {
-  const [count, setCount] = useState(0);
-  
-  useEffect(() => {
-    let startTime;
-    let animationFrame;
-    
-    const animate = (time) => {
-      if (!startTime) startTime = time;
-      const progress = Math.min((time - startTime) / (duration * 1000), 1);
-      // easeOutExpo
-      const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      setCount(to * ease);
-      
-      if (progress < 1) {
-        animationFrame = requestAnimationFrame(animate);
-      }
-    };
-    
-    animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [to, duration]);
-
-  return <span>{count.toFixed(decimals)}{suffix}</span>;
+// KPI Display Component (Instant, crisp values without flickering)
+const CountUp = ({ to, decimals = 0, suffix = '' }) => {
+  const val = Number(to);
+  const formatted = isNaN(val) ? to : (decimals > 0 ? val.toFixed(decimals) : Math.round(val));
+  return <span>{formatted}{suffix}</span>;
 };
 
 // Data
@@ -301,10 +281,8 @@ export default function Forecasts() {
                   stroke="#00f0ff" 
                   strokeWidth={2.5} 
                   fill="url(#gradForecastPremium)" 
-                  filter="url(#neonGlowForecast)"
-                  activeDot={{ r: 5, fill: '#0a0d14', stroke: '#00f0ff', strokeWidth: 3, className: 'drop-shadow-[0_0_8px_rgba(0,240,255,1)]' }} 
-                  animationDuration={2000}
-                  animationEasing="ease-out"
+                  activeDot={{ r: 5, fill: '#0a0d14', stroke: '#00f0ff', strokeWidth: 3 }} 
+                  isAnimationActive={false}
                 />
               )}
               {activeSeries.includes('actual') && (
@@ -316,10 +294,8 @@ export default function Forecasts() {
                   strokeWidth={2.5} 
                   fill="url(#gradActualPremium)" 
                   strokeDasharray="8 6" 
-                  filter="url(#neonGlowActual)"
-                  activeDot={{ r: 5, fill: '#0a0d14', stroke: '#00ff9d', strokeWidth: 3, className: 'drop-shadow-[0_0_8px_rgba(0,255,157,1)]' }} 
-                  animationDuration={2000}
-                  animationEasing="ease-out"
+                  activeDot={{ r: 5, fill: '#0a0d14', stroke: '#00ff9d', strokeWidth: 3 }} 
+                  isAnimationActive={false}
                 />
               )}
             </AreaChart>
@@ -347,8 +323,7 @@ export default function Forecasts() {
                   dataKey="demand" 
                   radius={[0, 6, 6, 0]} 
                   barSize={14}
-                  animationDuration={1500}
-                  animationEasing="ease-out"
+                  isAnimationActive={false}
                 >
                   {dynamicItemForecast.map((entry, i) => (
                     <Cell key={i} fill={entry.fill} className="hover:opacity-85 transition-opacity cursor-pointer" />
@@ -373,9 +348,10 @@ export default function Forecasts() {
                 {/* Track */}
                 <div className="flex-1 h-[7px] bg-[#000]/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),_0_1px_0_rgba(255,255,255,0.05)] rounded-full overflow-hidden relative">
                   <motion.div
-                    initial={{ width: 0 }}
+                    initial={false}
                     animate={{ width: `${item.confidence}%` }}
-                    transition={{ delay: 0.4 + i * 0.1, duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ width: `${item.confidence}%` }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
                     className={`h-full rounded-full relative overflow-hidden ${
                       item.confidence >= 90 ? 'bg-gradient-to-r from-[#00ff9d] to-[#00f0ff]' : 
                       item.confidence >= 75 ? 'bg-gradient-to-r from-[#ffeb3b] to-[#ff9800]' : 

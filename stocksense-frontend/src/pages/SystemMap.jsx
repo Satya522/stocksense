@@ -126,9 +126,8 @@ export default function SystemMap() {
   const [selectedNode, setSelectedNode] = useState(null);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/health')
-      .then(r => r.json())
-      .then(d => setApiHealth(d))
+    api.dashboardStats()
+      .then(d => setApiHealth(d ? { status: 'ok' } : null))
       .catch(() => setApiHealth(null));
   }, []);
 
@@ -136,19 +135,17 @@ export default function SystemMap() {
     <div className="flex flex-col gap-8">
       {/* Header */}
       <div>
-        <motion.h1 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="text-4xl font-bold tracking-tight mb-1">
+        <h1 className="text-4xl font-bold tracking-tight mb-1 text-white">
           System Architecture
-        </motion.h1>
+        </h1>
         <p className="text-muted text-base">How all 9 integrated systems work together in real-time.</p>
       </div>
 
       {/* Connection Status Strip */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
-        className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3">
         {[
           { name: 'ERPNext', ok: true, port: '8080' },
-          { name: 'MariaDB', ok: true, port: '3306' },
+          { name: 'MariaDB', ok: true, port: '3307' },
           { name: 'Python API', ok: !!apiHealth, port: '5000' },
           { name: 'React UI', ok: true, port: '5173' },
         ].map((s, i) => (
@@ -160,12 +157,11 @@ export default function SystemMap() {
             <span className="text-muted/60">:{s.port}</span>
           </div>
         ))}
-      </motion.div>
+      </div>
 
       {/* Visual Architecture Diagram */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-        className="glass-panel p-8 relative overflow-hidden">
-        <h2 className="text-lg font-bold mb-8 flex items-center gap-2">
+      <div className="glass-panel p-8 relative overflow-hidden">
+        <h2 className="text-lg font-bold mb-8 flex items-center gap-2 text-white">
           <Cable className="text-accent" size={20} /> Data Flow Architecture
         </h2>
 
@@ -202,7 +198,7 @@ export default function SystemMap() {
           {/* Row 4 */}
           <ArchNode icon={BarChart3} label="Power BI" sub="7 M-Queries" color="#ec4899" onClick={() => setSelectedNode('powerbi')} />
           <FlowArrow label="M-Query" direction="left" color="#ec4899" />
-          <ArchNode icon={Database} label="MariaDB" sub="ERPNext Database" color="#06b6d4" large onClick={() => setSelectedNode('mariadb')} />
+          <ArchNode icon={Database} label="MariaDB" sub="Port 3307 · ERP Database" color="#06b6d4" large onClick={() => setSelectedNode('mariadb')} />
           <FlowArrow label="JSON API" direction="right" color="#8b5cf6" />
           <ArchNode icon={MonitorSmartphone} label="React UI" sub="Port 5173" color="#8b5cf6" onClick={() => setSelectedNode('react')} />
         </div>
@@ -212,19 +208,16 @@ export default function SystemMap() {
           <Cable className="text-accent/30" size={48} />
           <p className="text-muted text-sm max-w-xs">Please view on a larger screen to see the interactive architecture diagram.</p>
         </div>
-      </motion.div>
+      </div>
 
       {/* Integration Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {integrations.map((intg, i) => {
           const IconComp = intg.icon;
           return (
-            <motion.div
+            <div
               key={intg.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 + i * 0.06 }}
-              className="glass-panel-hover p-6 cursor-pointer relative overflow-hidden group"
+              className="glass-panel p-6 cursor-pointer relative overflow-hidden group hover:border-white/[0.15] hover:bg-white/[0.04] transition-all"
               onClick={() => setSelectedNode(selectedNode === intg.id ? null : intg.id)}
             >
               {/* Glow */}
@@ -248,22 +241,19 @@ export default function SystemMap() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
 
       {/* Data Flow Table */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
-        className="glass-panel p-8">
+      <div className="glass-panel p-8">
         <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
           <Zap className="text-accent" size={20} /> Data Flow Connections
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {dataFlows.map((flow, i) => (
-            <motion.div key={i}
-              initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.8 + i * 0.05 }}
+            <div key={i}
               className="flex items-center gap-3 py-3 px-4 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.08] transition-colors"
             >
               <span className="text-sm font-medium text-white w-28 shrink-0">{flow.from}</span>
@@ -274,22 +264,19 @@ export default function SystemMap() {
                 <ChevronRight size={12} style={{ color: flow.color }} />
               </div>
               <span className="text-sm font-medium text-white w-28 shrink-0 text-right">{flow.to}</span>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Power Query Details */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}
-        className="glass-panel p-8">
-        <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
+      <div className="glass-panel p-8">
+        <h2 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
           <BarChart3 className="text-pink-400" size={20} /> Power BI — M-Query Pipeline
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {powerQueryDetails.map((pq, i) => (
-            <motion.div key={i}
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1 + i * 0.05 }}
+            <div key={i}
               className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]"
             >
               <div className="w-8 h-8 rounded-lg bg-pink-500/10 text-pink-400 flex items-center justify-center shrink-0">
@@ -299,10 +286,10 @@ export default function SystemMap() {
                 <p className="text-xs font-mono font-semibold text-white">{pq.name}</p>
                 <p className="text-[11px] text-muted">{pq.desc}</p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

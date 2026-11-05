@@ -71,16 +71,15 @@ export default function AIChatBox() {
           {messages.map((msg, i) => (
             <motion.div 
               key={i}
-              initial={{ opacity: 0, y: 12, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              initial={false}
+              animate={{ opacity: 1, y: 0 }}
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div 
-                className={`max-w-[80%] p-4 text-sm leading-relaxed ${
+                className={`max-w-[85%] p-4 text-sm leading-relaxed ${
                   msg.role === 'user' 
-                    ? 'bg-gradient-to-r from-accent to-blue-600 text-white rounded-2xl rounded-br-md shadow-lg shadow-accent/10' 
-                    : 'bg-white/[0.04] border border-white/[0.08] text-primary rounded-2xl rounded-bl-md whitespace-pre-wrap'
+                    ? 'bg-gradient-to-r from-accent to-blue-600 text-white rounded-2xl rounded-br-md shadow-lg shadow-accent/10 font-medium' 
+                    : 'bg-[#121624] border border-white/[0.1] text-white/90 rounded-2xl rounded-bl-md whitespace-pre-wrap shadow-md'
                 }`}
               >
                 {msg.content}
@@ -101,23 +100,18 @@ export default function AIChatBox() {
 
         {/* Suggestion chips (show only when there's just 1 message) */}
         {messages.length === 1 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex flex-wrap gap-2 mt-2"
-          >
+          <div className="flex flex-wrap gap-2 mt-3">
             {suggestions.map((s, i) => (
               <button
                 key={i}
                 onClick={() => handleSend(s)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs text-muted hover:text-white hover:border-accent/30 hover:bg-accent/5 transition-all"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/[0.06] border border-white/[0.12] text-xs font-medium text-white/80 hover:text-white hover:border-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
               >
-                <Lightbulb size={12} />
+                <Lightbulb size={12} className="text-amber-400" />
                 {s}
               </button>
             ))}
-          </motion.div>
+          </div>
         )}
       </div>
 

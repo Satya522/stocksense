@@ -13,9 +13,9 @@ const DEFAULT_ANOMALIES = [
 ];
 
 const severityConfig = {
-  critical: { bg: 'bg-rose-500/10', border: 'border-rose-500/20', icon: ShieldAlert, iconColor: 'text-rose-400', badge: 'bg-rose-500/20 text-rose-400' },
-  warning: { bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: AlertTriangle, iconColor: 'text-amber-400', badge: 'bg-amber-500/20 text-amber-400' },
-  info: { bg: 'bg-blue-500/10', border: 'border-blue-500/20', icon: Clock, iconColor: 'text-blue-400', badge: 'bg-blue-500/20 text-blue-400' },
+  critical: { bg: 'bg-rose-500/20', border: 'border-rose-500/40', icon: ShieldAlert, iconColor: 'text-rose-400', badge: 'bg-rose-500/20 text-rose-300 border border-rose-500/30' },
+  warning: { bg: 'bg-amber-500/20', border: 'border-amber-500/40', icon: AlertTriangle, iconColor: 'text-amber-400', badge: 'bg-amber-500/20 text-amber-300 border border-amber-500/30' },
+  info: { bg: 'bg-blue-500/20', border: 'border-blue-500/40', icon: Clock, iconColor: 'text-blue-400', badge: 'bg-blue-500/20 text-blue-300 border border-blue-500/30' },
 };
 
 export default function Anomalies() {
@@ -149,14 +149,13 @@ export default function Anomalies() {
                 <motion.div
                   key={anomaly.id}
                   layout
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={false}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ delay: 0.05 + i * 0.04 }}
-                  className={`glass-panel p-6 border ${cfg.border} relative overflow-hidden group`}
+                  className={`glass-panel p-6 border ${cfg.border} relative overflow-hidden group bg-white/[0.02]`}
                 >
                   {/* Severity glow */}
-                  <div className={`absolute -left-4 top-1/2 -translate-y-1/2 w-20 h-20 ${anomaly.severity === 'critical' ? 'bg-rose-500' : anomaly.severity === 'warning' ? 'bg-amber-500' : 'bg-blue-500'} blur-[50px] opacity-[0.08]`} />
+                  <div className={`absolute -left-4 top-1/2 -translate-y-1/2 w-20 h-20 ${anomaly.severity === 'critical' ? 'bg-rose-500' : anomaly.severity === 'warning' ? 'bg-amber-500' : 'bg-blue-500'} blur-[50px] opacity-[0.12]`} />
 
                   <div className="flex items-start justify-between gap-4 relative z-10">
                     <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -165,13 +164,13 @@ export default function Anomalies() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-3 mb-1.5">
-                          <h3 className="font-semibold text-white">{anomaly.item}</h3>
-                          <span className="text-xs font-mono text-muted">{anomaly.code}</span>
+                          <h3 className="font-semibold text-white text-base">{anomaly.item}</h3>
+                          <span className="text-xs font-mono text-white/50">{anomaly.code}</span>
                           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${cfg.badge}`}>
                             {anomaly.type}
                           </span>
                         </div>
-                        <p className="text-sm text-muted/80 leading-relaxed">{anomaly.message}</p>
+                        <p className="text-sm text-white/80 leading-relaxed font-normal">{anomaly.message}</p>
                       </div>
                     </div>
 

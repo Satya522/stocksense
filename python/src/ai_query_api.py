@@ -141,6 +141,20 @@ def query_db(sql, params=None):
         return None
 
 
+def format_inr_currency(val):
+    try:
+        val = float(val)
+        if val >= 10000000:
+            return f"₹{val/10000000:,.1f} Cr"
+        elif val >= 100000:
+            return f"₹{val/100000:,.1f}L"
+        elif val >= 1000:
+            return f"₹{val/1000:,.1f}K"
+        return f"₹{val:,.2f}"
+    except Exception:
+        return str(val)
+
+
 def get_dashboard_stats():
     summary = query_db("""
         SELECT
@@ -160,12 +174,7 @@ def get_dashboard_stats():
         low_count = sum(1 for s in stock if s.get('status') == 'critical')
         reorders = load_reorders()
 
-        if total_value >= 100000:
-            value_str = f"₹{total_value/100000:.1f}L"
-        elif total_value >= 1000:
-            value_str = f"₹{total_value/1000:.1f}K"
-        else:
-            value_str = f"₹{total_value:.0f}"
+        value_str = format_inr_currency(total_value)
 
         return {
             "total_items": total_items,
@@ -197,13 +206,7 @@ def get_dashboard_stats():
 
     s = summary[0] if summary else {}
     total_value = float(s.get('total_value', 0))
-
-    if total_value >= 100000:
-        value_str = f"₹{total_value/100000:.1f}L"
-    elif total_value >= 1000:
-        value_str = f"₹{total_value/1000:.1f}K"
-    else:
-        value_str = f"₹{total_value:.0f}"
+    value_str = format_inr_currency(total_value)
 
     return {
         "total_items": int(s.get('total_items', 0)),
@@ -230,7 +233,14 @@ def get_stock_data():
         LEFT JOIN `tabItem` i ON b.item_code = i.name
         LEFT JOIN `tabItem Reorder` ir ON ir.parent = b.item_code AND ir.warehouse = b.warehouse
         WHERE i.is_stock_item = 1
-        ORDER BY b.actual_qty ASC
+        ORDER BY 
+            CASE 
+                WHEN ir.warehouse_reorder_level IS NOT NULL AND b.actual_qty > 0 AND b.actual_qty < ir.warehouse_reorder_level THEN 1
+                WHEN b.actual_qty > 0 THEN 2
+                WHEN b.actual_qty = 0 THEN 3
+                ELSE 4
+            END,
+            b.actual_qty ASC
     """)
     if rows is None:
         rows = [dict(item) for item in DEFAULT_STOCK_DATA]
@@ -464,9 +474,16 @@ def create_reorder_request(order_data):
     Calls ERPNext REST API if available and logs to data/reorder_history.json.
     """
     code = (order_data.get('item_code') or order_data.get('code') or '').strip()
+    if not code:
+        return {"success": False, "error": "Item code is required"}
     name = (order_data.get('item_name') or order_data.get('name') or code).strip()
     warehouse = (order_data.get('warehouse') or 'WH-North').strip()
-    qty = float(order_data.get('qty') or order_data.get('reorderQty') or 50)
+    try:
+        qty = float(order_data.get('qty') or order_data.get('reorderQty') or 0)
+    except (ValueError, TypeError):
+        qty = 0
+    if qty <= 0:
+        return {"success": False, "error": "Order quantity must be greater than zero"}
     priority = (order_data.get('priority') or order_data.get('urgency') or 'Normal').capitalize()
     supplier = order_data.get('supplier') or 'Apex Industrial Tech (Primary)'
     notes = order_data.get('notes') or ''
@@ -740,14 +757,12 @@ class APIHandler(BaseHTTPRequestHandler):
                 self._json(200, {"healthy": h, "warning": w, "critical": c, "total": len(stock)})
 
             elif p == '/api/dashboard/summary':
-                if NLP_AVAILABLE:
-                    txt = query_engine.ask("Give me a summary of total items, total stock value, and how many items are low in stock.")
-                else:
-                    stats = get_dashboard_stats()
-                    txt = (f"Total Items: {stats['total_items']}\n"
-                           f"Stock Value: {stats['total_value']}\n"
-                           f"Low Stock Alerts: {stats['low_stock_alerts']}\n"
-                           f"Orders This Month: {stats['orders_this_month']}")
+                stats = get_dashboard_stats()
+                txt = (
+                    f"Operational snapshot: Actively tracking {stats['total_items']:,} catalog items across enterprise distribution centers, "
+                    f"representing {stats['total_qty']:,} units valued at {stats['total_value']}. "
+                    f"{stats['low_stock_alerts']} items require replenishment due to low safety stock levels."
+                )
                 self._json(200, {"summary": txt})
 
             elif p == '/api/forecasts':

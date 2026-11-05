@@ -25,9 +25,9 @@ env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 
-def test_erpnext_api():
+def check_erpnext_api():
     """
-    Test 1: Connect to ERPNext REST API and fetch Item count.
+    Check 1: Connect to ERPNext REST API and fetch Item count.
     Uses the requests library with API key/secret authentication.
     """
     print("=" * 60)
@@ -81,9 +81,14 @@ def test_erpnext_api():
         return False
 
 
-def test_database_connection():
+def test_erpnext_api():
+    """Pytest wrapper."""
+    assert check_erpnext_api() is True
+
+
+def check_database_connection():
     """
-    Test 2: Connect directly to MariaDB and query tabItem.
+    Check 2: Connect directly to MariaDB and query tabItem.
     Uses SQLAlchemy with the PyMySQL driver.
     """
     print()
@@ -137,14 +142,19 @@ def test_database_connection():
         return False
 
 
+def test_database_connection():
+    """Pytest wrapper."""
+    assert check_database_connection() is True
+
+
 def main():
     print()
     print("[StockSense] Connection Test")
     print("=" * 60)
     print()
 
-    api_ok = test_erpnext_api()
-    db_ok = test_database_connection()
+    api_ok = check_erpnext_api()
+    db_ok = check_database_connection()
 
     print()
     print("=" * 60)

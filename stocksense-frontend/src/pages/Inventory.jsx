@@ -47,7 +47,7 @@ function LevelBar({ levelPercent, status }) {
   const tone = STATUS_CLASS[normalizeStatus(status)] || 'warning';
   return (
     <div className="level-track" aria-label={`Inventory level ${clamped}%`}>
-      <span className={`level-fill ${tone}`} style={{ width: `${clamped}%` }} />
+      <span className={`level-fill ${tone}`} style={{ width: `${Math.max(clamped, 8)}%` }} />
     </div>
   );
 }
